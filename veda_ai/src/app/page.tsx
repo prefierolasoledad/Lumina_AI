@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/context/NotificationContext';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { api } from '@/services/api';
@@ -36,6 +37,9 @@ const initialMockAssignments: Assignment[] = [];
 export default function Home() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
+
+  const { notifications, unreadCount, markAllAsRead, clearNotifications } = useNotifications();
+  const [showMobileNotifDropdown, setShowMobileNotifDropdown] = useState(false);
 
   // Dashboard states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -126,6 +130,8 @@ export default function Home() {
         status: a.status === 'completed' ? 'Generated' : 'Active',
       }));
       setAssignments(mapped);
+      localStorage.setItem('veda_assignments', JSON.stringify(mapped));
+      window.dispatchEvent(new Event('veda_assignments_changed'));
     }
   };
 
@@ -134,6 +140,23 @@ export default function Home() {
     if (user) {
       fetchAssignments();
     }
+  }, [user]);
+
+  // Listen for WS job:done and auto-refresh assignments list on home page
+  useEffect(() => {
+    if (!user) return;
+
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080');
+    socketService.emit('subscribe', { userId: user._id });
+
+    const unsubDone = socketService.on('job:done', () => {
+      fetchAssignments();
+    });
+
+    return () => {
+      unsubDone();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Listen to document click to close active dropdowns (3-dot menu + filter panel)
@@ -224,7 +247,12 @@ export default function Home() {
       return;
     }
 
-    const { assignmentId } = res.data as any;
+    const assignmentId = res.data?.data?.assignmentId;
+    if (!assignmentId) {
+      alert('Failed to obtain assignment ID from generation response.');
+      setIsGenerating(false);
+      return;
+    }
 
     if (!user) return;
     // Connect to websocket to listen for job progress and completion
@@ -232,6 +260,43 @@ export default function Home() {
     
     // Subscribe to events for our user
     socketService.emit('subscribe', { userId: user._id });
+
+    let pollInterval: any = null;
+
+    const cleanup = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+      unsubProgress();
+      unsubDone();
+      unsubFailed();
+      setIsGenerating(false);
+    };
+
+    const resetFormAndNavigate = () => {
+      setShowCreateModal(false);
+      
+      // Reset form
+      setForm({
+        title: '',
+        subject: 'Physics',
+        points: 100,
+        timeLimit: 60,
+        difficulty: 'Medium',
+        questionTypes: ['mcq'],
+      });
+      setQuestionRows([
+        { type: 'mcq', count: 4, marks: 1 },
+        { type: 'short', count: 3, marks: 2 },
+        { type: 'diagram', count: 5, marks: 5 },
+        { type: 'numerical', count: 5, marks: 5 },
+      ]);
+      setDueDate(getFormattedDate(1));
+      setAdditionalInfo('');
+      setUploadedFiles([]);
+      
+      router.push(`/output/${assignmentId}`);
+    };
 
     const unsubProgress = socketService.on('job:progress', (data: any) => {
       if (data.assignmentId === assignmentId) {
@@ -241,44 +306,36 @@ export default function Home() {
 
     const unsubDone = socketService.on('job:done', (data: any) => {
       if (data.assignmentId === assignmentId) {
-        unsubProgress();
-        unsubDone();
-        unsubFailed();
-        setIsGenerating(false);
-        setShowCreateModal(false);
-        
-        // Reset form
-        setForm({
-          title: '',
-          subject: 'Physics',
-          points: 100,
-          timeLimit: 60,
-          difficulty: 'Medium',
-          questionTypes: ['mcq'],
-        });
-        setQuestionRows([
-          { type: 'mcq', count: 4, marks: 1 },
-          { type: 'short', count: 3, marks: 2 },
-          { type: 'diagram', count: 5, marks: 5 },
-          { type: 'numerical', count: 5, marks: 5 },
-        ]);
-        setDueDate(getFormattedDate(1));
-        setAdditionalInfo('');
-        setUploadedFiles([]);
-        
-        router.push(`/output/${assignmentId}`);
+        cleanup();
+        resetFormAndNavigate();
       }
     });
 
     const unsubFailed = socketService.on('job:failed', (data: any) => {
       if (data.assignmentId === assignmentId) {
-        unsubProgress();
-        unsubDone();
-        unsubFailed();
-        setIsGenerating(false);
+        cleanup();
         alert(data.error || 'Generation failed.');
       }
     });
+
+    // Fallback polling: if we miss the WS event (e.g. completed very fast), redirect immediately.
+    pollInterval = setInterval(async () => {
+      try {
+        const checkRes = (await api.getAssignmentById(assignmentId)) as any;
+        if (checkRes.success && checkRes.data) {
+          const status = checkRes.data.status;
+          if (status === 'completed') {
+            cleanup();
+            resetFormAndNavigate();
+          } else if (status === 'failed') {
+            cleanup();
+            alert(checkRes.data.error || 'Generation failed.');
+          }
+        }
+      } catch (err) {
+        // ignore polling errors
+      }
+    }, 2000);
   };
 
   const handleDeleteAssignment = async (id: string, e: React.MouseEvent) => {
@@ -419,12 +476,61 @@ export default function Home() {
                 <span className="font-extrabold text-zinc-900 text-lg tracking-tight">Home</span>
               </div>
               <div className="flex items-center gap-3">
-                <button className="relative w-10 h-10 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center transition-colors hover:bg-zinc-100" aria-label="Notifications">
-                  <svg className="w-5 h-5 text-zinc-850" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#ff7a59] rounded-full border border-white" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowMobileNotifDropdown(!showMobileNotifDropdown);
+                      markAllAsRead();
+                    }}
+                    className="relative w-10 h-10 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center transition-colors hover:bg-zinc-100 cursor-pointer"
+                    aria-label="Notifications"
+                  >
+                    <svg className="w-5 h-5 text-zinc-850" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#ff7a59] rounded-full border border-white" />
+                    )}
+                  </button>
+                  {showMobileNotifDropdown && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2.5 z-50 animate-fadeIn text-left">
+                      <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-zinc-800">Notifications</span>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={clearNotifications}
+                            className="text-[10px] text-zinc-400 hover:text-zinc-650 font-bold bg-transparent border-none cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-6 text-center text-xs text-zinc-400 font-medium">
+                            No notifications yet.
+                          </div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => {
+                                if (n.link) {
+                                  router.push(n.link);
+                                }
+                                setShowMobileNotifDropdown(false);
+                              }}
+                              className="px-4 py-3 hover:bg-zinc-50 border-b border-zinc-50 last:border-b-0 cursor-pointer transition-colors"
+                            >
+                              <div className="text-xs font-bold text-zinc-800 mb-0.5">{n.title}</div>
+                              <div className="text-[11px] text-zinc-550 leading-normal font-semibold">{n.body}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="relative">
                   <button
                     onClick={() => setShowMobileProfileDropdown(!showMobileProfileDropdown)}
@@ -454,12 +560,61 @@ export default function Home() {
                 <span className="font-extrabold text-zinc-900 text-lg tracking-tight">VedaAI</span>
               </div>
               <div className="flex items-center gap-3">
-                <button className="relative w-10 h-10 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center transition-colors hover:bg-zinc-100" aria-label="Notifications">
-                  <svg className="w-5 h-5 text-zinc-850" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#ff7a59] rounded-full border border-white" />
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowMobileNotifDropdown(!showMobileNotifDropdown);
+                      markAllAsRead();
+                    }}
+                    className="relative w-10 h-10 rounded-full bg-zinc-50 border border-zinc-100 flex items-center justify-center transition-colors hover:bg-zinc-100 cursor-pointer"
+                    aria-label="Notifications"
+                  >
+                    <svg className="w-5 h-5 text-zinc-850" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#ff7a59] rounded-full border border-white" />
+                    )}
+                  </button>
+                  {showMobileNotifDropdown && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2.5 z-50 animate-fadeIn text-left">
+                      <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-zinc-800">Notifications</span>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={clearNotifications}
+                            className="text-[10px] text-zinc-400 hover:text-zinc-650 font-bold bg-transparent border-none cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-6 text-center text-xs text-zinc-400 font-medium">
+                            No notifications yet.
+                          </div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => {
+                                if (n.link) {
+                                  router.push(n.link);
+                                }
+                                setShowMobileNotifDropdown(false);
+                              }}
+                              className="px-4 py-3 hover:bg-zinc-50 border-b border-zinc-50 last:border-b-0 cursor-pointer transition-colors"
+                            >
+                              <div className="text-xs font-bold text-zinc-800 mb-0.5">{n.title}</div>
+                              <div className="text-[11px] text-zinc-550 leading-normal font-semibold">{n.body}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="relative">
                   <button
                     onClick={() => setShowMobileProfileDropdown(!showMobileProfileDropdown)}

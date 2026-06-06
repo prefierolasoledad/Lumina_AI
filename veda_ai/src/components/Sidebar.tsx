@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/services/api';
 
 interface SidebarProps {
   activeItem: 'assignments' | 'settings' | 'home' | 'groups' | 'toolkit' | 'library';
@@ -15,6 +16,22 @@ export default function Sidebar({ activeItem }: SidebarProps) {
   const [assignmentCount, setAssignmentCount] = useState(0);
 
   useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const res = await api.listAssignments();
+        if (res.success && res.data) {
+          setAssignmentCount(res.data.length);
+          localStorage.setItem('veda_assignments', JSON.stringify(res.data));
+        }
+      } catch (err) {
+        console.error('Failed to fetch assignments count:', err);
+      }
+    };
+
+    if (user) {
+      fetchCount();
+    }
+
     if (typeof window !== 'undefined') {
       const updateCount = () => {
         const stored = localStorage.getItem('veda_assignments');
@@ -24,12 +41,10 @@ export default function Sidebar({ activeItem }: SidebarProps) {
           setAssignmentCount(0);
         }
       };
-
-      updateCount();
       window.addEventListener('veda_assignments_changed', updateCount);
       return () => window.removeEventListener('veda_assignments_changed', updateCount);
     }
-  }, []);
+  }, [user]);
 
   if (!user) return null;
 
@@ -47,8 +62,8 @@ export default function Sidebar({ activeItem }: SidebarProps) {
         </Link>
 
         {/* AI Teacher's Toolkit Button (matching new screenshot) */}
-        <button className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-zinc-900 text-white font-bold rounded-full border-[4px] border-[#ff7a59] shadow-md hover:bg-zinc-800 transition-all duration-200 cursor-pointer text-sm">
-          <svg className="w-6 h-6 text-white flex-shrink-0 font-bold" viewBox="0 0 24 24" fill="currentColor">
+        <button className="w-full flex items-center justify-center gap-1.5 py-2.5 px-2.5 bg-zinc-900 text-white font-extrabold rounded-full border-[4px] border-[#ff7a59] shadow-md hover:bg-zinc-800 transition-all duration-200 cursor-pointer text-xs whitespace-nowrap">
+          <svg className="w-5 h-5 text-white flex-shrink-0 font-bold" viewBox="0 0 24 24" fill="currentColor">
             {/* Large Sparkle */}
             <path d="M10 2c0 4.5-3.5 8-8 8 4.5 0 8 3.5 8 8 0-4.5 3.5-8 8-8-4.5 0-8-3.5-8-8z" />
             {/* Small Sparkle */}

@@ -70,7 +70,7 @@ export const api = {
       }
 
       const data = await response.json();
-      return { success: true, data };
+      return { success: true, data: data.data };
     } catch (error: any) {
       console.error("API getAssignmentById error:", error);
       return {
@@ -146,6 +146,32 @@ export const api = {
       return {
         success: false,
         error: error.message || "Failed to delete assignment.",
+      };
+    }
+  },
+
+  /**
+   * Updates an existing assignment by ID
+   */
+  async updateAssignment(id: string, payload: any): Promise<ApiResponse<Assignment>> {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/assignments/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const resData = await response.json();
+      return { success: true, data: resData.data };
+    } catch (error: any) {
+      console.error("API updateAssignment error:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to update assignment.",
       };
     }
   },

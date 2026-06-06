@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/context/NotificationContext';
 
 interface HeaderProps {
   title?: string;
@@ -15,14 +16,20 @@ interface HeaderProps {
 export default function Header({ title = 'Assignment', showBackButton = true, backUrl, onBackClick }: HeaderProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, markAllAsRead, clearNotifications } = useNotifications();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowUserDropdown(false);
+      }
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target as Node)) {
+        setShowNotifDropdown(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -83,17 +90,70 @@ export default function Header({ title = 'Assignment', showBackButton = true, ba
       {/* Right Header Navigation Panel */}
       <div className="flex items-center gap-5">
         {/* Notification Bell */}
-        <button className="p-2 hover:bg-zinc-55 text-zinc-400 hover:text-zinc-700 rounded-full transition-colors relative cursor-pointer" aria-label="Notifications">
-          <svg className="w-5.5 h-5.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-            />
-          </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
-        </button>
+        <div className="relative" ref={notifDropdownRef}>
+          <button
+            onClick={() => {
+              setShowNotifDropdown(!showNotifDropdown);
+              markAllAsRead();
+            }}
+            className="p-2 hover:bg-zinc-55 text-zinc-400 hover:text-zinc-700 rounded-full transition-colors relative cursor-pointer"
+            aria-label="Notifications"
+          >
+            <svg className="w-5.5 h-5.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+            )}
+          </button>
+
+          {showNotifDropdown && (
+            <div className="absolute right-0 mt-2 w-72 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2.5 z-50 animate-fadeIn text-left">
+              <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between">
+                <span className="text-xs font-extrabold text-zinc-800">Notifications</span>
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearNotifications}
+                    className="text-[10px] text-zinc-400 hover:text-zinc-600 font-bold bg-transparent border-none cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-xs text-zinc-400 font-medium">
+                    No notifications yet.
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        if (n.link) {
+                          router.push(n.link);
+                        }
+                        setShowNotifDropdown(false);
+                      }}
+                      className="px-4 py-3 hover:bg-zinc-50 border-b border-zinc-50 last:border-b-0 cursor-pointer transition-colors"
+                    >
+                      <div className="text-xs font-bold text-zinc-800 mb-0.5">{n.title}</div>
+                      <div className="text-[11px] text-zinc-500 leading-normal font-medium">{n.body}</div>
+                      <div className="text-[9px] text-zinc-400 mt-1.5 font-semibold">
+                        {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Profile Dropdown */}
         <div className="relative" ref={dropdownRef}>

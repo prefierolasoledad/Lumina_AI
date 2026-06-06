@@ -5,6 +5,7 @@ class SocketService {
   private listeners: Map<string, Set<SocketEventCallback>> = new Map();
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private url: string = "";
+  private queue: { event: string; data: any }[] = [];
 
   connect(url: string = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080") {
     if (this.socket) {
@@ -17,6 +18,17 @@ class SocketService {
       this.socket.onopen = () => {
         console.log("WebSocket connected to", url);
         this.emitInternal("connect", null);
+        
+        // Flush queue
+        if (this.queue.length > 0) {
+          console.log(`Flushing ${this.queue.length} queued WebSocket messages...`);
+          this.queue.forEach((msg) => {
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+              this.socket.send(JSON.stringify(msg));
+            }
+          });
+          this.queue = [];
+        }
       };
 
       this.socket.onmessage = (event) => {
@@ -54,6 +66,7 @@ class SocketService {
       this.socket.close();
       this.socket = null;
     }
+    this.queue = [];
   }
 
   on(event: string, callback: SocketEventCallback) {
@@ -78,7 +91,8 @@ class SocketService {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify({ event, data }));
     } else {
-      console.warn("WebSocket is not connected. Message queued or dropped:", { event, data });
+      console.log("WebSocket is not connected yet. Queuing message:", { event, data });
+      this.queue.push({ event, data });
     }
   }
 

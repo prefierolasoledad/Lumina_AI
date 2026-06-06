@@ -143,3 +143,30 @@ export async function deleteAssignment(req, res) {
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 }
+
+/**
+ * PUT /api/assignments/:id
+ * Update an existing assignment.
+ */
+export async function updateAssignment(req, res) {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const { title, subject, difficulty, timeLimit, totalMarks, totalQuestions, sections, dueDate } = req.body;
+
+    const assignment = await Assignment.findOneAndUpdate(
+      { _id: id, userId },
+      { title, subject, difficulty, timeLimit, totalMarks, totalQuestions, sections, dueDate },
+      { new: true }
+    );
+
+    if (!assignment) {
+      return res.status(404).json({ success: false, error: 'Assignment not found or unauthorized' });
+    }
+
+    return res.json({ success: true, data: assignment });
+  } catch (err) {
+    console.error('updateAssignment error:', err);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+}
