@@ -109,80 +109,68 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     autonumber
-    rect rgb(240, 246, 255)
-        Note over Client, Express: Phase A: Account Registration
-        Client->>Express: POST /api/auth/register (Username, Email, Password)
-        Note right of Express: Validates format & password strength
-        Express->>Express: Generate 6-Digit OTP & SHA-256 Hash
-        Express->>MongoDB: Save Unverified User Document
-        Express->>Nodemailer: Trigger Email Delivery (SMTP)
-        Nodemailer-->>Client: Receive Verification OTP Email
-        Express-->>Client: 201 Created (Verify OTP notice)
-    end
+    Note over Client, Express: Phase A: Account Registration
+    Client->>Express: POST /api/auth/register (Username, Email, Password)
+    Note right of Express: Validates format & password strength
+    Express->>Express: Generate 6-Digit OTP & SHA-256 Hash
+    Express->>MongoDB: Save Unverified User Document
+    Express->>Nodemailer: Trigger Email Delivery (SMTP)
+    Nodemailer-->>Client: Receive Verification OTP Email
+    Express-->>Client: 201 Created (Verify OTP notice)
     
-    rect rgb(236, 253, 245)
-        Note over Client, Express: Phase B: Account Activation
-        Client->>Express: POST /api/auth/verify-otp (Email, OTP)
-        Express->>MongoDB: Query user & verify hash + expiry
-        MongoDB-->>Express: Success
-        Express->>Express: Generate Access (15m) & Refresh (7d) Tokens
-        Express->>Client: Send HTTP-Only Cookie Headers
-        Express-->>Client: 200 Success (Logged In)
-    end
+    Note over Client, Express: Phase B: Account Activation
+    Client->>Express: POST /api/auth/verify-otp (Email, OTP)
+    Express->>MongoDB: Query user & verify hash + expiry
+    MongoDB-->>Express: Success
+    Express->>Express: Generate Access (15m) & Refresh (7d) Tokens
+    Express->>Client: Send HTTP-Only Cookie Headers
+    Express-->>Client: 200 Success (Logged In)
 ```
 
 ### 2. Password Reset Flow (Secure Token)
 ```mermaid
 sequenceDiagram
     autonumber
-    rect rgb(245, 243, 255)
-        Note over Client, Express: Phase A: Requesting Reset
-        Client->>Express: POST /api/auth/forgot-password { email }
-        Express->>MongoDB: Check if user exists
-        Express->>Express: Generate Cryptographically Secure Reset Token
-        Express->>Express: Hash Token (SHA-256) & Set +10 Min Expiry
-        Express->>MongoDB: Save Hashed Token & Expiration
-        Express->>Nodemailer: Send styled reset URL with cleartext token
-        Express-->>Client: 200 OK (Generic safe response)
-    end
+    Note over Client, Express: Phase A: Requesting Reset
+    Client->>Express: POST /api/auth/forgot-password { email }
+    Express->>MongoDB: Check if user exists
+    Express->>Express: Generate Cryptographically Secure Reset Token
+    Express->>Express: Hash Token (SHA-256) & Set +10 Min Expiry
+    Express->>MongoDB: Save Hashed Token & Expiration
+    Express->>Nodemailer: Send styled reset URL with cleartext token
+    Express-->>Client: 200 OK (Generic safe response)
 
-    rect rgb(253, 242, 248)
-        Note over Client, Express: Phase B: Reset Submission
-        Client->>Express: POST /api/auth/reset-password/:token { password }
-        Note right of Express: Hash URL token & query DB for match + validity
-        Express->>MongoDB: Query user with active unexpired token
-        MongoDB-->>Express: User Document Found
-        Express->>Express: Encrypt new password (Bcrypt) & clear reset fields
-        Express->>Express: Empty refreshTokens array (Force global logout)
-        Express->>MongoDB: Save updated User Document
-        Express-->>Client: 200 Success (Redirect to Login)
-    end
+    Note over Client, Express: Phase B: Reset Submission
+    Client->>Express: POST /api/auth/reset-password/:token { password }
+    Note right of Express: Hash URL token & query DB for match + validity
+    Express->>MongoDB: Query user with active unexpired token
+    MongoDB-->>Express: User Document Found
+    Express->>Express: Encrypt new password (Bcrypt) & clear reset fields
+    Express->>Express: Empty refreshTokens array (Force global logout)
+    Express->>MongoDB: Save updated User Document
+    Express-->>Client: 200 Success (Redirect to Login)
 ```
 
 ### 3. Asynchronous Question Paper Generation Flow
 ```mermaid
 sequenceDiagram
     autonumber
-    rect rgb(254, 252, 232)
-        Note over Client, Express: Phase A: Submission & Enqueueing
-        Client->>Express: POST /api/assignments/generate { config }
-        Express->>MongoDB: Save Assignment Document (status: 'pending')
-        Express->>BullMQ: Enqueue Generation Job
-        Express-->>Client: 201 Accepted { assignmentId, jobId }
-    end
+    Note over Client, Express: Phase A: Submission & Enqueueing
+    Client->>Express: POST /api/assignments/generate { config }
+    Express->>MongoDB: Save Assignment Document (status: 'pending')
+    Express->>BullMQ: Enqueue Generation Job
+    Express-->>Client: 201 Accepted { assignmentId, jobId }
 
-    rect rgb(236, 254, 255)
-        Note over BullMQ Worker, Gemini AI: Phase B: Async Processing & Real-time Updates
-        BullMQ Worker->>WebSocket: Push State: 'Parsing reference materials...' (20%)
-        WebSocket-->>Client: WS Event: job:progress
-        BullMQ Worker->>WebSocket: Push State: 'Generating questions...' (60%)
-        WebSocket-->>Client: WS Event: job:progress
-        BullMQ Worker->>Gemini AI: Request Structured Exam Schema
-        Gemini AI-->>BullMQ Worker: Clean parsed JSON payload
-        BullMQ Worker->>MongoDB: Update Assignment (status: 'completed', sections: JSON)
-        BullMQ Worker->>WebSocket: Emit job:done with completed assignment data
-        WebSocket-->>Client: Final UI Update (Show Paper Output)
-    end
+    Note over BullMQ Worker, Gemini AI: Phase B: Async Processing & Real-time Updates
+    BullMQ Worker->>WebSocket: Push State: 'Parsing reference materials...' (20%)
+    WebSocket-->>Client: WS Event: job:progress
+    BullMQ Worker->>WebSocket: Push State: 'Generating questions...' (60%)
+    WebSocket-->>Client: WS Event: job:progress
+    BullMQ Worker->>Gemini AI: Request Structured Exam Schema
+    Gemini AI-->>BullMQ Worker: Clean parsed JSON payload
+    BullMQ Worker->>MongoDB: Update Assignment (status: 'completed', sections: JSON)
+    BullMQ Worker->>WebSocket: Emit job:done with completed assignment data
+    WebSocket-->>Client: Final UI Update (Show Paper Output)
 ```
 
 ---
