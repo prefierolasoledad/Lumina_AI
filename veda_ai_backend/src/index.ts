@@ -1,8 +1,12 @@
 import express from 'express';
+import dns from 'dns';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
+
+// Force IPv4 preference for DNS resolution to avoid ENETUNREACH IPv6 errors in cloud hosting environments (like Railway)
+dns.setDefaultResultOrder('ipv4first');
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import assignmentRoutes from './routes/assignmentRoutes.js';
