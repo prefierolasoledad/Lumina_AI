@@ -17,23 +17,16 @@ export const sendEmail = async ({ to, subject, text, html }) => {
   }
 
   try {
-    const config = process.env.SMTP_HOST
-      ? {
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT) || 587,
-          secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        }
-      : {
-          service: 'gmail',
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        };
+    const config = {
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      requireTLS: true,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    };
 
     const transporter = nodemailer.createTransport(config);
 
@@ -71,21 +64,21 @@ export const verifySMTP = async () => {
   try {
     const config = process.env.SMTP_HOST
       ? {
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          secure: process.env.SMTP_SECURE === 'true',
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        }
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      }
       : {
-          service: 'gmail',
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-          },
-        };
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      };
 
     const transporter = nodemailer.createTransport(config);
     await transporter.verify();
