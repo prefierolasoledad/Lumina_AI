@@ -19,7 +19,10 @@ export interface User {
   updatedAt?: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+let API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+if (API_BASE_URL && !API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://') && !API_BASE_URL.startsWith('/')) {
+  API_BASE_URL = `https://${API_BASE_URL}`;
+}
 
 export const authService = {
   /**

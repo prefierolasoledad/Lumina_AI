@@ -11,9 +11,13 @@ class SocketService {
     if (this.socket) {
       return;
     }
-    this.url = url;
+    let normalizedUrl = url;
+    if (normalizedUrl && !normalizedUrl.startsWith("ws://") && !normalizedUrl.startsWith("wss://")) {
+      normalizedUrl = `wss://${normalizedUrl}`;
+    }
+    this.url = normalizedUrl;
     try {
-      this.socket = new WebSocket(url);
+      this.socket = new WebSocket(normalizedUrl);
 
       this.socket.onopen = () => {
         console.log("WebSocket connected to", url);
