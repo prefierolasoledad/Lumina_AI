@@ -78,3 +78,13 @@ body {
     box-shadow: none !important;
   }
 }
+
+/* Paper Font Size Controls — S / M / L buttons */
+.paper-font-s { font-size: 10.5px; }
+.paper-font-s * { font-size: inherit !important; line-height: 1.45 !important; }
+
+.paper-font-m { font-size: 13px; }
+.paper-font-m * { font-size: inherit !important; line-height: 1.55 !important; }
+
+.paper-font-l { font-size: 15.5px; }
+.paper-font-l * { font-size: inherit !important; line-height: 1.65 !important; }
