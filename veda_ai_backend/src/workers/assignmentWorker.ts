@@ -70,7 +70,7 @@ export function startAssignmentWorker() {
         });
 
         return { success: true };
-      } catch (err) {
+      } catch (err: any) {
         console.error(`Worker error for assignment ${assignmentId}:`, err.message);
 
         // Mark as failed in DB
@@ -89,7 +89,7 @@ export function startAssignmentWorker() {
       }
     },
     {
-      connection: redisConnection,
+      connection: redisConnection as any,
       concurrency: 3,
     }
   );
@@ -98,7 +98,7 @@ export function startAssignmentWorker() {
     console.log(`Job ${job.id} completed`);
   });
 
-  worker.on('failed', (job, err) => {
+  worker.on('failed', (job, err: any) => {
     console.error(`Job ${job?.id} failed:`, err.message);
   });
 
@@ -106,6 +106,6 @@ export function startAssignmentWorker() {
   return worker;
 }
 
-function delay(ms) {
+function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

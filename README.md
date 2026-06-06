@@ -65,6 +65,49 @@ git push -u origin main
 
 ## 🏛️ System Architecture & Data Flow
 
+### Architecture Overview
+```txt
+Teacher
+   │
+   ▼
+Next.js Frontend (Zustand, Websockets)
+   │
+   ▼ (REST Request)
+Express API Gateway
+   │
+   ▼ (Job Enqueued)
+BullMQ Queue
+   │
+   ▼
+Redis (Job Store)
+   │
+   ▼ (Claim Job)
+BullMQ Worker
+   │
+   ▼ (Generate Structured Exam Paper)
+Google Gemini AI 1.5
+   │
+   ▼ (Save Result)
+MongoDB
+   │
+   ▼ (Emit Completed Status)
+WebSocket Server
+   │
+   ▼ (Real-time Progress & Final Output Page)
+Teacher
+```
+
+### Why Queue-Based Processing?
+
+LLM generation tasks can take anywhere from 10 to 30+ seconds to complete. Keeping a synchronous HTTP request open for that duration causes server timeouts, prevents concurrency, and wastes CPU cycles. 
+
+To solve this, Veda AI uses a decoupled **BullMQ + Redis** queue structure:
+- **Zero Timeout Risks**: The Express API receives the request, writes a `pending` assignment to MongoDB, enqueues the job in Redis, and instantly returns `201 Accepted`.
+- **Concurrent Scaling**: Redis acts as a state store allowing workers to scale horizontally across servers or threads without blocking main API routes.
+- **Real-Time Client Updates**: A background worker claims the task, posts step-by-step progress metrics to a WebSocket connection, and saves the final JSON schemas directly to the DB on completion.
+
+---
+
 Veda AI utilizes a modern, decoupled asynchronous stack designed for heavy compute tasks (AI generation):
 
 ```mermaid

@@ -122,10 +122,10 @@ export const registerUser = async (req, res) => {
     } else {
       return res.status(400).json({ success: false, message: 'Invalid user data' });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Register Error: ${error.message}`);
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map((val) => val.message);
+      const messages = Object.values(error.errors).map((val: any) => val.message);
       return res.status(400).json({ success: false, message: messages[0] });
     }
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
@@ -195,7 +195,7 @@ export const verifyOtp = async (req, res) => {
         subjects: user.subjects,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Verify OTP Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -252,7 +252,7 @@ export const resendOtp = async (req, res) => {
       success: true,
       message: 'A new OTP verification code has been sent to your email.',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Resend OTP Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -276,7 +276,7 @@ export const loginUser = async (req, res) => {
     const user = await User.findOne({ email });
 
     // Verify user exists and password matches
-    if (user && (await user.matchPassword(password))) {
+    if (user && (await (user as any).matchPassword(password))) {
       // Check if user is verified
       if (!user.isVerified) {
         // Send a fresh OTP to unverified accounts upon login attempt
@@ -337,7 +337,7 @@ export const loginUser = async (req, res) => {
     } else {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Login Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -356,7 +356,7 @@ export const logoutUser = async (req, res) => {
       // Decode user ID from refresh token to pull it from DB
       const refreshSecret = process.env.JWT_REFRESH_SECRET || (process.env.JWT_SECRET + '_refresh');
       try {
-        const decoded = jwt.verify(refreshToken, refreshSecret);
+        const decoded = jwt.verify(refreshToken, refreshSecret) as any;
         await User.findByIdAndUpdate(decoded.userId, {
           $pull: { refreshTokens: refreshToken }
         });
@@ -370,7 +370,7 @@ export const logoutUser = async (req, res) => {
     res.clearCookie('refreshToken');
 
     return res.status(200).json({ success: true, message: 'Logged out successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Logout Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -402,7 +402,7 @@ export const refreshAccessToken = async (req, res) => {
     }
 
     // Check if user exists and if the token is active in their refreshTokens array
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById((decoded as any).userId);
     if (!user || !user.refreshTokens.includes(refreshToken)) {
       // Possible reuse attack! Invalidate user's sessions
       if (user) {
@@ -445,7 +445,7 @@ export const refreshAccessToken = async (req, res) => {
     });
 
     return res.status(200).json({ success: true, message: 'Tokens refreshed' });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Refresh Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -525,7 +525,7 @@ export const updateUserProfile = async (req, res) => {
         subjects: user.subjects,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Update Profile Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -561,7 +561,7 @@ export const forgotPassword = async (req, res) => {
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     // Set expiry to 10 minutes from now
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+    user.resetPasswordExpire = new Date(Date.now() + 10 * 60 * 1000);
 
     await user.save({ validateBeforeSave: false });
 
@@ -594,7 +594,7 @@ export const forgotPassword = async (req, res) => {
       success: true,
       message: 'If a user with that email exists, a password reset link has been sent.',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Forgot Password Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
@@ -651,7 +651,7 @@ export const resetPassword = async (req, res) => {
       success: true,
       message: 'Password reset successful. Please log in with your new password.',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Reset Password Error: ${error.message}`);
     return res.status(500).json({ success: false, message: 'Server error, please try again' });
   }
