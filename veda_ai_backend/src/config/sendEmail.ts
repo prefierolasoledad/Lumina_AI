@@ -1,7 +1,5 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
-
 export const sendEmail = async ({
   to,
   subject,
@@ -13,6 +11,7 @@ export const sendEmail = async ({
   html?: string;
   text?: string;
 }) => {
+  const resend = new Resend(process.env.RESEND_API_KEY!);
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || 'Veda AI <onboarding@resend.dev>',
     to,
