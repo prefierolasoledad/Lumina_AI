@@ -38,12 +38,17 @@ export const api = {
    */
   async generateAssignment(config: any): Promise<ApiResponse<any>> {
     try {
+      const isFormData = config instanceof FormData;
+      const headers: HeadersInit = {};
+      
+      if (!isFormData) {
+        headers["Content-Type"] = "application/json";
+      }
+
       const response = await authenticatedFetch(`${API_BASE_URL}/assignments/generate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(config),
+        headers,
+        body: isFormData ? config : JSON.stringify(config),
       });
 
       if (!response.ok) {

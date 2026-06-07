@@ -56,7 +56,7 @@ export default function Home() {
   // Form states
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
-  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; size: string }[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{ file: File; name: string; size: string }[]>([]);
   const [questionRows, setQuestionRows] = useState([
     { type: 'mcq', count: 4, marks: 1 },
     { type: 'short', count: 3, marks: 2 },
@@ -210,6 +210,7 @@ export default function Home() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const list = Array.from(e.target.files).map((f) => ({
+        file: f,
         name: f.name,
         size: (f.size / 1024).toFixed(1) + ' KB',
       }));
@@ -226,17 +227,21 @@ export default function Home() {
     setIsGenerating(true);
     setGenerationStep(0);
 
-    const payload = {
-      title: form.title,
-      subject: form.subject,
-      difficulty: form.difficulty.toLowerCase() as "easy" | "medium" | "hard",
-      timeLimit: Number(form.timeLimit),
-      dueDate: dueDate,
-      questionRows: questionRows,
-      additionalInfo: additionalInfo,
-    };
+    const formData = new FormData();
+    formData.append('title', form.title);
+    formData.append('subject', form.subject);
+    formData.append('difficulty', form.difficulty.toLowerCase());
+    formData.append('timeLimit', String(form.timeLimit));
+    formData.append('dueDate', dueDate);
+    formData.append('questionRows', JSON.stringify(questionRows));
+    formData.append('additionalInfo', additionalInfo);
+    
+    // Append all uploaded files
+    uploadedFiles.forEach(uf => {
+      formData.append('files', uf.file);
+    });
 
-    const res = await api.generateAssignment(payload);
+    const res = await api.generateAssignment(formData);
     if (!res.success || !res.data) {
       alert(res.error || 'Failed to start generation');
       setIsGenerating(false);

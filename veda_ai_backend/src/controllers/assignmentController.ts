@@ -8,15 +8,29 @@ import { assignmentQueue } from '../queues/assignmentQueue.js';
 export async function createAssignment(req, res) {
   try {
     const userId = req.user._id;
-    const {
+    let {
       title,
       subject,
       difficulty = 'medium',
       timeLimit = 60,
       dueDate,
-      questionRows = [],
+      questionRows = '[]',
       additionalInfo = '',
     } = req.body;
+
+    if (typeof questionRows === 'string') {
+      try {
+        questionRows = JSON.parse(questionRows);
+      } catch (e) {
+        questionRows = [];
+      }
+    }
+
+    const files = req.files ? (req.files as Express.Multer.File[]).map(f => ({
+      path: f.path,
+      mimetype: f.mimetype,
+      originalname: f.originalname
+    })) : [];
 
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, error: 'Assignment title is required' });
@@ -60,7 +74,7 @@ export async function createAssignment(req, res) {
       {
         assignmentId: assignment._id.toString(),
         userId: userId.toString(),
-        config: { title, subject, difficulty, timeLimit, questionRows, additionalInfo },
+        config: { title, subject, difficulty, timeLimit, questionRows, additionalInfo, files },
       },
       { jobId: `assignment-${assignment._id}` }
     );

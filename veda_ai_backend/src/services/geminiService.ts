@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+import fs from 'fs';
 dotenv.config();
 
 /**
@@ -68,13 +69,34 @@ export async function generateQuestionPaper(config: any) {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-flash-latest',
+    model: 'gemini-1.5-flash',
     generationConfig: {
       responseMimeType: 'application/json'
     }
   });
 
-  const result = await model.generateContent(prompt);
+  const parts: any[] = [{ text: prompt }];
+
+  if (config.files && config.files.length > 0) {
+    for (const file of config.files) {
+      if (fs.existsSync(file.path)) {
+        const data = fs.readFileSync(file.path).toString("base64");
+        parts.push({
+          inlineData: {
+            data,
+            mimeType: file.mimetype
+          }
+        });
+        
+        // Optionally delete the file after reading it to clean up the uploads folder
+        fs.unlink(file.path, (err) => {
+          if (err) console.error("Failed to delete temp file:", file.path);
+        });
+      }
+    }
+  }
+
+  const result = await model.generateContent(parts);
   const content = result.response.text();
 
   if (!content) {
