@@ -146,6 +146,15 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  const handleCreateClick = () => {
+    if (!user?.schoolName || !user?.degree) {
+      alert('Please complete your profile details (Institution Name and Grade/Degree) before creating an assignment.');
+      router.push('/settings');
+      return;
+    }
+    setShowCreateModal(true);
+  };
+
   // Listen to document click to close active dropdowns (3-dot menu + filter panel)
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -999,7 +1008,7 @@ export default function Home() {
                 </p>
 
                 <button
-                  onClick={() => setShowCreateModal(true)}
+                  onClick={handleCreateClick}
                   className="flex items-center gap-2 py-3 px-6 bg-zinc-950 hover:bg-zinc-900 text-white font-bold rounded-full shadow-md active:scale-98 transition-all duration-200 cursor-pointer text-xs"
                 >
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1185,7 +1194,7 @@ export default function Home() {
                 {/* Desktop floating bottom button — hidden on mobile */}
                 <div className="hidden md:flex fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
                   <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={handleCreateClick}
                     className="flex items-center gap-2 py-3 px-6 bg-zinc-950 hover:bg-zinc-900 text-white font-bold rounded-full border border-zinc-800 shadow-xl active:scale-98 transition-all duration-200 cursor-pointer text-xs"
                   >
                     <svg className="w-4 h-4 text-orange-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1258,7 +1267,7 @@ export default function Home() {
 
         {/* Mobile FAB — always visible on mobile */}
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={handleCreateClick}
           className="md:hidden fixed bottom-24 right-6 z-40 w-14 h-14 bg-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform cursor-pointer border-none"
           aria-label="Create assignment"
         >
