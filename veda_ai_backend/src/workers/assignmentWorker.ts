@@ -13,8 +13,9 @@ const STEPS = [
 ];
 
 export function startAssignmentWorker() {
+  const queueName = `assignment-generation-${process.env.NODE_ENV || 'development'}`;
   const worker = new Worker(
-    'assignment-generation',
+    queueName,
     async (job) => {
       const { assignmentId, userId, config } = job.data;
 
