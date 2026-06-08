@@ -7,10 +7,7 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-let API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-if (API_BASE_URL && !API_BASE_URL.startsWith('http://') && !API_BASE_URL.startsWith('https://') && !API_BASE_URL.startsWith('/')) {
-  API_BASE_URL = `https://${API_BASE_URL}`;
-}
+let API_BASE_URL = '/api';
 
 /**
  * Custom fetch wrapper that automatically handles credentials and silent token refresh on 401.

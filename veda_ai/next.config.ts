@@ -10,6 +10,14 @@ const nextConfig: any = {
   experimental: {
     // Optional additional configurations if needed
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/:path*`,
+      },
+    ];
+  },
   transpilePackages: [],
   webpack: (config: any) => {
     return config;
