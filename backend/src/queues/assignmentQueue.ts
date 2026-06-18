@@ -7,8 +7,10 @@ const queueName = `assignment-generation-${process.env.NODE_ENV || 'development'
 export const assignmentQueue = new Queue(queueName, {
   connection: bullMQRedisOptions,
   defaultJobOptions: {
-    attempts: 2,
-    backoff: { type: 'exponential', delay: 3000 },
+    // The worker retries Gemini transient errors in-process (3 attempts with
+    // backoff), so we do NOT add queue-level retries — one job run = 3 attempts,
+    // then it fails cleanly with a high-demand warning.
+    attempts: 1,
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 50 },
   },

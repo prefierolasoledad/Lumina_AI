@@ -91,8 +91,15 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Refresh tokens are stored HASHED (sha256) with their expiry, never in
+    // plaintext, so a database leak does not hand an attacker usable sessions.
     refreshTokens: {
-      type: [String],
+      type: [
+        {
+          tokenHash: { type: String, required: true },
+          expiresAt: { type: Date, required: true },
+        },
+      ],
       default: [],
     },
     resetPasswordToken: {

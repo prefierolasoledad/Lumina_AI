@@ -39,6 +39,24 @@ body {
   animation: fadeIn 0.15s ease-out;
 }
 
+/* Flowing gradient (for hero text & CTAs) */
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientShift 7s ease infinite;
+}
+
+/* Gentle floating motion for decorative blobs */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-22px) translateX(12px); }
+}
+.animate-float-slow { animation: floatSlow 11s ease-in-out infinite; }
+.animate-float-slower { animation: floatSlow 16s ease-in-out infinite; }
+
 /* Print Styling for Assessment PDF */
 @media print {
   body, html {

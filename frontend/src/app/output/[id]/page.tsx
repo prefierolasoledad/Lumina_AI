@@ -9,6 +9,7 @@ import { socketService } from '@/services/socket';
 import { useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import Logo from '@/components/Logo';
 import { useNotifications } from '@/context/NotificationContext';
 
 interface Question {
@@ -38,6 +39,8 @@ interface AssignmentData {
   status: string;
   additionalInfo?: string;
   questionRows?: any[];
+  groupId?: string | null;
+  groupName?: string;
 }
 
 interface PageProps {
@@ -54,6 +57,11 @@ export default function OutputPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
+
+  // Group assignment
+  const [groups, setGroups] = useState<{ _id: string; name: string; color?: string }[]>([]);
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [assigningGroup, setAssigningGroup] = useState(false);
 
   const { notifications, unreadCount, markAllAsRead, clearNotifications } = useNotifications();
   const [showMobileNotifDropdown, setShowMobileNotifDropdown] = useState(false);
@@ -74,7 +82,7 @@ export default function OutputPage({ params }: PageProps) {
   const generationSteps = [
     'Parsing reference materials...',
     'Structuring custom question paper schema...',
-    'Generating questions using Veda AI model...',
+    'Generating questions using Lumina AI model...',
     'Formulating answers and rubrics...',
     'Finalizing assignment output...',
   ];
@@ -94,6 +102,28 @@ export default function OutputPage({ params }: PageProps) {
   useEffect(() => {
     fetchAssignment();
   }, [id]);
+
+  // Load the user's groups so the paper can be assigned to one
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const res = await api.listGroups();
+      if (res.success && res.data) setGroups(res.data as any);
+    })();
+  }, [user]);
+
+  const handleAssignGroup = async (groupId: string | null) => {
+    if (!assignment) return;
+    setAssigningGroup(true);
+    const res = await api.assignToGroup(assignment._id, groupId);
+    setAssigningGroup(false);
+    setShowGroupMenu(false);
+    if (res.success && res.data) {
+      setAssignment({ ...assignment, groupId: res.data.groupId, groupName: res.data.groupName });
+    } else {
+      alert(res.error || 'Failed to update group assignment.');
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -268,7 +298,7 @@ export default function OutputPage({ params }: PageProps) {
         <div className="relative w-20 h-20 mb-8">
           <div className="absolute inset-0 rounded-full border-4 border-zinc-850 border-t-[#ff7a59] animate-spin" />
         </div>
-        <h3 className="text-lg font-bold text-zinc-100 mb-2">Regenerating with Veda AI</h3>
+        <h3 className="text-lg font-bold text-zinc-100 mb-2">Regenerating with Lumina AI</h3>
         <p className="text-xs text-[#ff7a59] font-semibold animate-pulse">{generationSteps[generationStep]}</p>
         
         <div className="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-6 border border-zinc-800">
@@ -348,12 +378,7 @@ export default function OutputPage({ params }: PageProps) {
 
         {/* Mobile Header (matching Dashboard layout) */}
         <header className="flex md:hidden items-center justify-between mx-4 mt-4 mb-2 px-4 py-3 bg-white border border-zinc-200/60 rounded-[24px] shadow-sm sticky top-4 z-30 no-print">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center font-extrabold text-white text-base shadow-sm">
-              V
-            </div>
-            <span className="font-extrabold text-zinc-900 text-lg tracking-tight">VedaAI</span>
-          </div>
+          <Logo size="sm" href="/" />
           <div className="flex items-center gap-3">
             <div className="relative">
               <button
@@ -487,6 +512,65 @@ export default function OutputPage({ params }: PageProps) {
               </Link>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Assign to Group dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowGroupMenu((v) => !v)}
+                    disabled={assigningGroup}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-bold transition-all cursor-pointer border disabled:opacity-60 ${
+                      assignment?.groupId
+                        ? 'bg-[#ff7a59]/15 border-[#ff7a59]/40 text-[#ff7a59] hover:bg-[#ff7a59]/25'
+                        : 'bg-zinc-800/80 hover:bg-zinc-700 border-zinc-700 text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="max-w-32 truncate">{assignment?.groupName || 'Assign to Group'}</span>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showGroupMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowGroupMenu(false)} />
+                      <div className="absolute right-0 mt-2 w-56 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2 z-50 max-h-64 overflow-y-auto">
+                        {groups.length === 0 ? (
+                          <div className="px-4 py-3 text-xs text-zinc-400 font-semibold leading-relaxed">
+                            No groups yet.{' '}
+                            <Link href="/groups" className="text-[#ff7a59] font-bold hover:underline">
+                              Create one
+                            </Link>{' '}
+                            to assign this paper.
+                          </div>
+                        ) : (
+                          <>
+                            {assignment?.groupId && (
+                              <button
+                                onClick={() => handleAssignGroup(null)}
+                                className="w-full text-left px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                              >
+                                Unassign
+                              </button>
+                            )}
+                            {groups.map((g) => (
+                              <button
+                                key={g._id}
+                                onClick={() => handleAssignGroup(g._id)}
+                                className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                              >
+                                <span className="truncate">{g.name}</span>
+                                {assignment?.groupId === g._id && <span className="text-[#ff7a59] font-bold">✓</span>}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 {/* Regenerate button */}
                 <button
                   onClick={handleRegenerate}

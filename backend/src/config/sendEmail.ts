@@ -23,7 +23,7 @@ export const sendEmail = async ({
   });
 
   const msg = {
-    from: `Veda AI <${process.env.EMAIL_USER}>`,
+    from: `Lumina AI <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text: text || '',

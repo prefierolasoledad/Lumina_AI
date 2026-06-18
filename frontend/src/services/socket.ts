@@ -6,11 +6,16 @@ class SocketService {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private url: string = "";
   private queue: { event: string; data: any }[] = [];
+  private intentionalClose = false;
+  private authFailed = false;
 
   connect(url: string = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080") {
     if (this.socket) {
       return;
     }
+    // Fresh connection attempt — clear stop flags.
+    this.intentionalClose = false;
+    this.authFailed = false;
     let normalizedUrl = url;
     if (normalizedUrl && !normalizedUrl.startsWith("ws://") && !normalizedUrl.startsWith("wss://")) {
       normalizedUrl = `wss://${normalizedUrl}`;
@@ -39,6 +44,13 @@ class SocketService {
         try {
           const parsed = JSON.parse(event.data);
           if (parsed && parsed.event) {
+            // The server rejects unauthenticated / bad-origin handshakes with this
+            // event right before closing. Don't hammer it with reconnects — wait for
+            // the next explicit connect() after the auth state changes.
+            if (parsed.event === "unauthorized") {
+              this.authFailed = true;
+              console.warn("[WebSocket] not authorized — pausing reconnects until next sign-in.");
+            }
             this.emitInternal(parsed.event, parsed.data);
           }
         } catch (err) {
@@ -46,14 +58,21 @@ class SocketService {
         }
       };
 
-      this.socket.onerror = (error) => {
-        console.error("WebSocket connection error:", error);
+      this.socket.onerror = () => {
+        // Browser WebSocket "error" events expose no useful detail (they serialize to {}),
+        // and the onclose handler drives reconnection. Log a quiet warning instead of
+        // console.error so it doesn't surface as a Next.js error overlay.
+        console.warn("[WebSocket] connection issue — will retry if needed.");
       };
 
       this.socket.onclose = () => {
-        console.log("WebSocket connection closed. Attempting reconnect in 5s...");
         this.socket = null;
         this.emitInternal("disconnect", null);
+        // Only auto-reconnect for unexpected drops — not on intentional disconnects
+        // or auth rejections (which would otherwise loop forever).
+        if (this.intentionalClose || this.authFailed) {
+          return;
+        }
         this.reconnectTimeout = setTimeout(() => this.connect(this.url), 5000);
       };
     } catch (err) {
@@ -62,6 +81,7 @@ class SocketService {
   }
 
   disconnect() {
+    this.intentionalClose = true;
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

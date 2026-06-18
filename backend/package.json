@@ -1,7 +1,7 @@
 {
-  "name": "veda_ai_backend",
+  "name": "lumina-ai-backend",
   "version": "1.0.0",
-  "description": "Backend for Veda AI with MongoDB and JWT Cookie-based auth",
+  "description": "Backend for Lumina AI with MongoDB and JWT Cookie-based auth",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@sendgrid/mail": "^8.1.6",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.78.0",
     "cookie-parser": "^1.4.7",
@@ -19,13 +18,13 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.2",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.10",
     "redis": "^6.0.0",
-    "resend": "^6.12.4",
     "uuid": "^14.0.0",
     "ws": "^8.21.0"
   },

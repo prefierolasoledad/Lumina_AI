@@ -12,13 +12,13 @@ import {
   resetPassword,
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
-import { otpAndResetLimiter } from '../middleware/rateLimitMiddleware.js';
+import { otpAndResetLimiter, loginLimiter } from '../middleware/rateLimitMiddleware.js';
 
 const router = express.Router();
 
 // Public routes
 router.post('/register', otpAndResetLimiter, registerUser);
-router.post('/login', loginUser);
+router.post('/login', loginLimiter, loginUser);
 router.post('/logout', logoutUser);
 router.post('/verify-otp', otpAndResetLimiter, verifyOtp);
 router.post('/resend-otp', otpAndResetLimiter, resendOtp);

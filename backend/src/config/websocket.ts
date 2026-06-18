@@ -1,10 +1,25 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server as HttpServer } from 'http';
+import jwt from 'jsonwebtoken';
 
 // Map of userId → Set of WebSocket clients
 const clients = new Map();
 
 let wss: WebSocketServer | null = null;
+
+// Minimal cookie header parser (avoids pulling in express middleware here)
+function parseCookies(cookieHeader?: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!cookieHeader) return out;
+  for (const part of cookieHeader.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    const val = part.slice(idx + 1).trim();
+    if (key) out[key] = decodeURIComponent(val);
+  }
+  return out;
+}
 
 export function initWebSocketServer(server: HttpServer) {
   wss = new WebSocketServer({ server });
@@ -14,16 +29,56 @@ export function initWebSocketServer(server: HttpServer) {
   });
 
   wss.on('connection', (ws, req) => {
-    // Client sends { event: 'subscribe', userId } on connect
+    // Reject cross-site WebSocket handshakes (CSWSH). Because auth cookies are
+    // SameSite=None in production, a malicious page could open a socket in the
+    // victim's browser and have their cookies attached. Validate the Origin header
+    // against the configured frontend. Requests without an Origin (native clients,
+    // not browsers) are allowed since CSWSH is a browser-only attack.
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+    ];
+    const origin = req.headers.origin;
+    if (origin && !allowedOrigins.includes(origin)) {
+      try {
+        ws.send(JSON.stringify({ event: 'unauthorized', data: { message: 'Origin not allowed' } }));
+      } catch {}
+      ws.close();
+      return;
+    }
+
+    // Authenticate the connection from the httpOnly accessToken cookie sent on the
+    // upgrade request. The client-supplied userId is NOT trusted — we only ever use
+    // the id derived from the verified JWT, preventing subscribing to other users' jobs.
+    let authenticatedUserId: string | null = null;
+    try {
+      const cookies = parseCookies(req.headers.cookie);
+      if (cookies.accessToken) {
+        const decoded = jwt.verify(cookies.accessToken, process.env.JWT_SECRET as string) as any;
+        authenticatedUserId = decoded?.userId ?? null;
+      }
+    } catch {
+      authenticatedUserId = null;
+    }
+
+    if (!authenticatedUserId) {
+      try {
+        ws.send(JSON.stringify({ event: 'unauthorized', data: { message: 'Authentication required' } }));
+      } catch {}
+      ws.close();
+      return;
+    }
+
+    // Client sends { event: 'subscribe' } on connect — userId is taken from the token.
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
-        if (msg.event === 'subscribe' && msg.userId) {
-          if (!clients.has(msg.userId)) {
-            clients.set(msg.userId, new Set());
+        if (msg.event === 'subscribe') {
+          if (!clients.has(authenticatedUserId)) {
+            clients.set(authenticatedUserId, new Set());
           }
-          clients.get(msg.userId).add(ws);
-          ws.send(JSON.stringify({ event: 'subscribed', data: { userId: msg.userId } }));
+          clients.get(authenticatedUserId).add(ws);
+          ws.send(JSON.stringify({ event: 'subscribed', data: { userId: authenticatedUserId } }));
         }
       } catch (e) {
         // ignore malformed messages

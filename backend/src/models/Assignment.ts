@@ -40,6 +40,9 @@ const assignmentSchema = new mongoose.Schema(
     },
     jobId: { type: String },
     error: { type: String },
+    // Optional assignment of this paper to a student group
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null },
+    groupName: { type: String, default: '' }, // snapshot for quick display
   },
   { timestamps: true }
 );

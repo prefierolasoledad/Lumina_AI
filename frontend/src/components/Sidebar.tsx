@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/services/api';
+import Logo from '@/components/Logo';
 
 interface SidebarProps {
   activeItem: 'assignments' | 'settings' | 'home' | 'groups' | 'toolkit' | 'library';
@@ -51,18 +52,11 @@ export default function Sidebar({ activeItem }: SidebarProps) {
   return (
     <aside className="w-64 bg-white border-r border-zinc-200 flex flex-col justify-between p-6 flex-shrink-0 h-screen sticky top-0">
       <div className="space-y-8">
-        {/* Logo (Black icon matching screenshot) */}
-        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-          <div className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center font-extrabold text-xl text-white shadow-md">
-            V
-          </div>
-          <span className="font-extrabold text-xl tracking-tight text-zinc-900">
-            VedaAI
-          </span>
-        </Link>
+        {/* Lumina AI brand logo */}
+        <Logo size="md" href="/" />
 
-        {/* AI Teacher's Toolkit Button (matching new screenshot) */}
-        <button className="w-full flex items-center justify-center gap-1.5 py-2.5 px-2.5 bg-zinc-900 text-white font-extrabold rounded-full border-[4px] border-[#ff7a59] shadow-md hover:bg-zinc-800 transition-all duration-200 cursor-pointer text-xs whitespace-nowrap">
+        {/* AI Teacher's Toolkit Button — gradient brand pill */}
+        <Link href="/toolkit" className="group w-full flex items-center justify-center gap-1.5 py-2.5 px-2.5 bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] text-white font-extrabold rounded-full shadow-lg shadow-[#f43f8e]/25 hover:shadow-[#f43f8e]/40 hover:scale-[1.02] transition-all duration-200 cursor-pointer text-xs whitespace-nowrap">
           <svg className="w-5 h-5 text-white flex-shrink-0 font-bold" viewBox="0 0 24 24" fill="currentColor">
             {/* Large Sparkle */}
             <path d="M10 2c0 4.5-3.5 8-8 8 4.5 0 8 3.5 8 8 0-4.5 3.5-8 8-8-4.5 0-8-3.5-8-8z" />
@@ -70,7 +64,7 @@ export default function Sidebar({ activeItem }: SidebarProps) {
             <path d="M19 2c0 2.5-2 4.5-4.5 4.5 2.5 0 4.5 2 4.5 4.5 0-2.5 2-4.5 4.5-4.5-2.5 0-4.5-2-4.5-4.5z" />
           </svg>
           <span>AI Teacher's Toolkit</span>
-        </button>
+        </Link>
 
         {/* Navigation list */}
         <nav className="space-y-1">
@@ -88,7 +82,8 @@ export default function Sidebar({ activeItem }: SidebarProps) {
             <span>Home</span>
           </Link>
 
-          <button
+          <Link
+            href="/groups"
             className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150 text-left ${
               activeItem === 'groups'
                 ? 'bg-zinc-100 text-zinc-900 font-semibold border border-zinc-200'
@@ -99,10 +94,10 @@ export default function Sidebar({ activeItem }: SidebarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <span>My Groups</span>
-          </button>
+          </Link>
 
           <Link
-            href="/"
+            href="/assignments"
             className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150 ${
               activeItem === 'assignments'
                 ? 'bg-zinc-100 text-zinc-900 font-semibold border border-zinc-200'
@@ -122,7 +117,8 @@ export default function Sidebar({ activeItem }: SidebarProps) {
             )}
           </Link>
 
-          <button
+          <Link
+            href="/toolkit"
             className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150 text-left ${
               activeItem === 'toolkit'
                 ? 'bg-zinc-100 text-zinc-900 font-semibold border border-zinc-200'
@@ -133,9 +129,10 @@ export default function Sidebar({ activeItem }: SidebarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
             <span>AI Teacher's Toolkit</span>
-          </button>
+          </Link>
 
-          <button
+          <Link
+            href="/library"
             className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150 text-left ${
               activeItem === 'library'
                 ? 'bg-zinc-100 text-zinc-900 font-semibold border border-zinc-200'
@@ -146,7 +143,7 @@ export default function Sidebar({ activeItem }: SidebarProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
             </svg>
             <span>My Library</span>
-          </button>
+          </Link>
         </nav>
       </div>
 

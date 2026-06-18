@@ -7,7 +7,7 @@ import Assignment from '../models/Assignment.js';
 const STEPS = [
   'Parsing reference materials...',
   'Structuring custom question paper schema...',
-  'Generating questions using Veda AI model...',
+  'Generating questions using Lumina AI model...',
   'Formulating answers and rubrics...',
   'Finalizing assignment output...',
 ];
@@ -20,6 +20,9 @@ export function startAssignmentWorker() {
       const { assignmentId, userId, config } = job.data;
 
       try {
+        // Mark as processing so the status reflects the live job state
+        await Assignment.findByIdAndUpdate(assignmentId, { status: 'processing' });
+
         // Step 1-4: emit progress events
         for (let i = 0; i < STEPS.length - 1; i++) {
           await job.updateProgress(Math.round(((i + 1) / STEPS.length) * 100));
@@ -54,6 +57,12 @@ export function startAssignmentWorker() {
           { new: true }
         );
 
+        // Guard: assignment may have been deleted by the user mid-generation.
+        if (!updated) {
+          console.warn(`Assignment ${assignmentId} no longer exists; skipping completion notice.`);
+          return { success: true };
+        }
+
         // Notify frontend — done!
         emitToUser(userId, 'job:done', {
           assignmentId,
@@ -74,17 +83,15 @@ export function startAssignmentWorker() {
       } catch (err: any) {
         console.error(`Worker error for assignment ${assignmentId}:`, err.message);
 
-        // Mark as failed in DB
-        await Assignment.findByIdAndUpdate(assignmentId, {
-          status: 'failed',
-          error: err.message,
-        });
-
-        // Notify frontend of failure
+        // Notify the frontend of the failure (with the high-demand warning, etc.)
         emitToUser(userId, 'job:failed', {
           assignmentId,
           error: err.message,
         });
+
+        // The assignment was never successfully created — remove the placeholder
+        // record so it does not linger as a stuck entry in the user's dashboard.
+        await Assignment.findByIdAndDelete(assignmentId);
 
         throw err;
       }

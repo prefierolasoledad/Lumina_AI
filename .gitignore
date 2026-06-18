@@ -10,14 +10,14 @@ node_modules/
 *.env
 
 # Ignore frontend build directories
-veda_ai/.next/
-veda_ai/out/
-veda_ai/build/
-veda_ai/tsconfig.tsbuildinfo
-veda_ai/next-env.d.ts
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts
 
 # Ignore backend build directories
-veda_ai_backend/dist/
+backend/dist/
 
 # Yarn PnP & Yarn Berry (if used)
 .pnp.*

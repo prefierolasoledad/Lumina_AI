@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { authService } from '@/services/authService';
+import Logo from '@/components/Logo';
 
 interface StrengthCriteria {
   label: string;
@@ -51,6 +53,11 @@ export default function LoginPage() {
   });
   const [errorMsg, setErrorMsg] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+
+  // Forgot Password States
+  const [showForgotScreen, setShowForgotScreen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
 
   // OTP Verification States
   const [showOtpScreen, setShowOtpScreen] = useState(false);
@@ -154,6 +161,29 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setForgotSuccess('');
+
+    const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(forgotEmail)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    setFormLoading(true);
+    const result = await authService.forgotPassword(forgotEmail);
+    setFormLoading(false);
+
+    if (result.success) {
+      // Backend returns a generic message regardless of whether the email exists
+      setForgotSuccess(result.message || 'If an account exists for that email, a reset link has been sent.');
+    } else {
+      setErrorMsg(result.error || 'Failed to send reset email. Please try again.');
+    }
+  };
+
   // OTP input handling logic
   const handleOtpChange = (element: HTMLInputElement, index: number) => {
     const value = element.value;
@@ -249,14 +279,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-zinc-100 text-zinc-900 flex flex-col justify-between selection:bg-indigo-500 selection:text-white font-sans">
       {/* Header */}
       <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-8 sticky top-0 z-50">
-        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-          <div className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center font-extrabold text-xl text-white shadow-md">
-            V
-          </div>
-          <span className="font-extrabold text-xl tracking-tight text-zinc-900">
-            VedaAI
-          </span>
-        </Link>
+        <Logo size="md" href="/" />
       </header>
 
       {/* Main Authentication Area */}
@@ -277,22 +300,86 @@ export default function LoginPage() {
           )}
 
           {/* Success Message Box */}
-          {otpSuccess && (
+          {(otpSuccess || forgotSuccess) && (
             <div className="mb-5 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 text-sm flex items-center gap-2 relative z-10 font-semibold">
               <svg className="w-5 h-5 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{otpSuccess}</span>
+              <span>{otpSuccess || forgotSuccess}</span>
             </div>
           )}
 
-          {!showOtpScreen ? (
+          {showForgotScreen ? (
+            /* Forgot Password Panel */
+            <>
+              <div className="text-center mb-6 relative z-10">
+                <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950">
+                  Reset Password
+                </h2>
+                <p className="text-zinc-500 text-xs mt-2 leading-relaxed font-semibold">
+                  Enter your account email and we&apos;ll send you a link to reset your password.
+                </p>
+              </div>
+
+              <form onSubmit={handleForgotSubmit} className="space-y-4 relative z-10">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    name="forgotEmail"
+                    value={forgotEmail}
+                    onChange={(e) => {
+                      setForgotEmail(e.target.value);
+                      setErrorMsg('');
+                    }}
+                    placeholder="you@example.com"
+                    required
+                    className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 hover:border-zinc-300 focus:outline-hidden focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 rounded-2xl text-zinc-900 placeholder-zinc-400 transition-all duration-200 text-sm font-semibold"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="w-full mt-2 py-3 px-6 bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] hover:opacity-95 text-white font-bold rounded-full border-none shadow-md shadow-[#ff7a59]/10 active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                >
+                  {formLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    'Send Reset Link'
+                  )}
+                </button>
+
+                <div className="flex justify-center pt-2 border-t border-zinc-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotScreen(false);
+                      setErrorMsg('');
+                      setForgotSuccess('');
+                    }}
+                    className="mt-3 text-zinc-550 hover:text-zinc-900 transition-colors cursor-pointer font-bold text-xs"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : !showOtpScreen ? (
             /* Authentication Panel */
             <>
               {/* Heading */}
               <div className="text-center mb-8 relative z-10">
                 <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950">
-                  Welcome to VedaAI
+                  Welcome to Lumina AI
                 </h2>
                 <p className="text-zinc-400 text-xs font-semibold mt-2">
                   {isLoginTab ? 'Sign in to generate questions' : 'Create an account to get started'}
@@ -414,6 +501,24 @@ export default function LoginPage() {
                   )}
                 </div>
 
+                {isLoginTab && (
+                  <div className="text-right -mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotScreen(true);
+                        setForgotEmail(formData.email);
+                        setErrorMsg('');
+                        setOtpSuccess('');
+                        setForgotSuccess('');
+                      }}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer transition-colors"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+
                 {!isLoginTab && (
                   <div>
                     <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
@@ -434,7 +539,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="w-full mt-6 py-3 px-6 bg-[#ff7a59] hover:bg-[#fa6a47] text-white font-bold rounded-full border-none shadow-md shadow-[#ff7a59]/10 active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  className="w-full mt-6 py-3 px-6 bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] hover:opacity-95 text-white font-bold rounded-full border-none shadow-md shadow-[#ff7a59]/10 active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                 >
                   {formLoading ? (
                     <>
@@ -485,7 +590,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="w-full py-3 px-6 bg-[#ff7a59] hover:bg-[#fa6a47] text-white font-bold rounded-full border-none shadow-md shadow-[#ff7a59]/10 active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  className="w-full py-3 px-6 bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] hover:opacity-95 text-white font-bold rounded-full border-none shadow-md shadow-[#ff7a59]/10 active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                 >
                   {formLoading ? (
                     <>
@@ -537,7 +642,7 @@ export default function LoginPage() {
 
       {/* Footer */}
       <footer className="border-t border-zinc-200/80 py-6 text-center text-xs text-zinc-450 font-semibold bg-white/40">
-        &copy; {new Date().getFullYear()} Veda AI. Secure OTP verification.
+        &copy; {new Date().getFullYear()} Lumina AI. Secure OTP verification.
       </footer>
     </div>
   );

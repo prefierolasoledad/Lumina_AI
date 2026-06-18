@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import Logo from '@/components/Logo';
+import MobileBottomNav from '@/components/MobileBottomNav';
 import { api } from '@/services/api';
 import { socketService } from '@/services/socket';
 
@@ -96,7 +98,7 @@ export default function Home() {
   const generationSteps = [
     'Parsing reference materials...',
     'Structuring custom question paper schema...',
-    'Generating questions using Veda AI model...',
+    'Generating questions using Lumina AI model...',
     'Formulating answers and rubrics...',
     'Finalizing assignment output...',
   ];
@@ -154,6 +156,18 @@ export default function Home() {
     }
     setShowCreateModal(true);
   };
+
+  // Open the create flow when arriving via /?create=1 (e.g. from the Assignments page)
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') === '1') {
+      handleCreateClick();
+      // Clean the query so a refresh doesn't re-trigger it
+      window.history.replaceState({}, '', '/');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Listen to document click to close active dropdowns (3-dot menu + filter panel)
   useEffect(() => {
@@ -315,15 +329,19 @@ export default function Home() {
     const unsubFailed = socketService.on('job:failed', (data: any) => {
       if (data.assignmentId === assignmentId) {
         cleanup();
-        alert(data.error || 'Generation failed.');
+        alert(data.error || "This request couldn't be fulfilled. Please try again in a few moments.");
+        // Refresh the list so the failed (now-deleted) placeholder doesn't linger
+        fetchAssignments();
       }
     });
 
     // Fallback polling: if we miss the WS event (e.g. completed very fast), redirect immediately.
+    let consecutiveMisses = 0;
     pollInterval = setInterval(async () => {
       try {
         const checkRes = (await api.getAssignmentById(assignmentId)) as any;
         if (checkRes.success && checkRes.data) {
+          consecutiveMisses = 0;
           const status = checkRes.data.status;
           if (status === 'completed') {
             cleanup();
@@ -331,6 +349,15 @@ export default function Home() {
           } else if (status === 'failed') {
             cleanup();
             alert(checkRes.data.error || 'Generation failed.');
+            fetchAssignments();
+          }
+        } else {
+          // Assignment not found — it was deleted after a failed generation.
+          consecutiveMisses += 1;
+          if (consecutiveMisses >= 2) {
+            cleanup();
+            alert("This request couldn't be fulfilled — the system is experiencing high demand. Please try again in a few moments.");
+            fetchAssignments();
           }
         }
       } catch (err) {
@@ -360,82 +387,114 @@ export default function Home() {
   // -------------------------------------------------------------
   if (!user) {
     return (
-      <div className="min-h-screen bg-zinc-100 text-zinc-900 flex flex-col justify-between selection:bg-[#ff7a59] selection:text-white font-sans">
+      <div className="relative min-h-screen overflow-hidden bg-white text-zinc-900 flex flex-col selection:bg-[#f43f8e] selection:text-white font-sans">
+        {/* Decorative gradient auras */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -left-32 w-[34rem] h-[34rem] rounded-full bg-[#ff7a59]/25 blur-[130px] animate-float-slow" />
+          <div className="absolute -top-10 right-0 w-[30rem] h-[30rem] rounded-full bg-[#8b5cf6]/25 blur-[130px] animate-float-slower" />
+          <div className="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] rounded-full bg-[#f43f8e]/20 blur-[130px] animate-float-slow" />
+        </div>
+
         {/* Header */}
-        <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-8 sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center font-extrabold text-xl text-white shadow-md">
-              V
-            </div>
-            <span className="font-extrabold text-xl tracking-tight text-zinc-900">
-              VedaAI
-            </span>
-          </div>
-          <nav className="flex items-center">
+        <header className="relative z-10 h-16 flex items-center justify-between px-6 sm:px-10 mt-2">
+          <Logo size="md" href="/" />
+          <nav className="flex items-center gap-1.5 sm:gap-3">
             <Link
               href="/login"
-              className="px-6 py-2.5 text-xs font-bold bg-zinc-950 hover:bg-zinc-900 rounded-full transition-all duration-200 text-white shadow-md cursor-pointer border border-zinc-900 active:scale-98"
+              className="px-4 sm:px-5 py-2.5 text-xs font-bold text-zinc-600 hover:text-zinc-950 transition-colors"
             >
               Sign In
+            </Link>
+            <Link
+              href="/login"
+              className="px-5 py-2.5 text-xs font-bold rounded-full text-white bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] animate-gradient shadow-lg shadow-[#f43f8e]/25 hover:scale-[1.03] active:scale-100 transition-transform"
+            >
+              Get Started
             </Link>
           </nav>
         </header>
 
-        {/* Main Hero / Dashboard Area */}
-        <main className="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto px-6 py-16 text-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ff7a59]/10 border border-[#ff7a59]/20 text-[#ff7a59] text-xs font-bold mb-6 shadow-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#ff7a59] animate-pulse" />
-            Smart Assessment Platform Active
+        {/* Hero */}
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center max-w-5xl mx-auto px-6 py-14 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/70 backdrop-blur border border-zinc-200 text-xs font-bold mb-7 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="bg-gradient-to-r from-[#ff7a59] to-[#8b5cf6] bg-clip-text text-transparent">
+              AI-Powered Assessment Platform
+            </span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 text-zinc-900">
-            Automated Question & <br />
-            <span className="text-[#ff7a59]">Assignment Generator</span>
+          <h1 className="text-4xl sm:text-5xl md:text-[4.2rem] font-extrabold tracking-tight leading-[1.05] mb-6">
+            Create exam papers in
+            <br className="hidden sm:block" />{' '}
+            <span className="bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] bg-clip-text text-transparent animate-gradient">
+              seconds, not hours.
+            </span>
           </h1>
 
-          <p className="text-zinc-550 text-base md:text-lg max-w-2xl mb-12 leading-relaxed font-semibold">
-            Create comprehensive, tailored question papers, grade assignments, and get detailed feedback powered by Veda AI. Upload materials and customize your criteria.
+          <p className="text-zinc-500 text-base md:text-lg max-w-2xl mb-9 leading-relaxed font-medium">
+            Lumina AI generates tailored question papers, rubrics, and lesson plans from your
+            syllabus — then helps you organize classes and track everything in one place.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full text-left mb-12">
-            {/* Card 1: Coral Theme */}
-            <div className="p-6 rounded-3xl bg-white border border-zinc-200 hover:border-[#ff7a59]/40 hover:shadow-md transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-[#ff7a59]/10 border border-[#ff7a59]/20 flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-[#ff7a59]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="font-extrabold text-zinc-900 mb-2">Assignment Form</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed font-semibold">Configure parameters, select types, difficulty, and generate custom question papers.</p>
-            </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 mb-16">
+            <Link
+              href="/login"
+              className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] animate-gradient shadow-xl shadow-[#f43f8e]/30 hover:scale-[1.03] active:scale-100 transition-transform"
+            >
+              Get Started Free
+              <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </Link>
+            <Link
+              href="/login"
+              className="px-7 py-3.5 rounded-full text-sm font-bold text-zinc-700 bg-white border border-zinc-200 hover:border-zinc-300 hover:shadow-md transition-all"
+            >
+              I already have an account
+            </Link>
+          </div>
 
-            {/* Card 2: Purple Theme */}
-            <div className="p-6 rounded-3xl bg-white border border-zinc-200 hover:border-purple-500/40 hover:shadow-md transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
+          {/* Feature cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full text-left">
+            {[
+              {
+                title: 'AI Question Papers',
+                desc: 'Set type, difficulty & marks — get a complete, formatted exam paper in seconds.',
+                grad: 'from-[#ff7a59] to-[#f43f8e]',
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
+              },
+              {
+                title: "Teacher's Toolkit",
+                desc: 'Lesson plans, rubrics, concept explainers & quizzes — a full AI assistant suite.',
+                grad: 'from-[#f43f8e] to-[#8b5cf6]',
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />,
+              },
+              {
+                title: 'Groups & Library',
+                desc: 'Organize classes into groups and keep every generated paper in one searchable library.',
+                grad: 'from-[#8b5cf6] to-[#6366f1]',
+                icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />,
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="group p-6 rounded-3xl bg-white/70 backdrop-blur border border-zinc-200/80 hover:border-zinc-300 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${f.grad} flex items-center justify-center mb-4 shadow-md`}>
+                  <svg className="w-5.5 h-5.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    {f.icon}
+                  </svg>
+                </div>
+                <h3 className="font-extrabold text-zinc-900 mb-2">{f.title}</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed font-semibold">{f.desc}</p>
               </div>
-              <h3 className="font-extrabold text-zinc-900 mb-2">Upload Section</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed font-semibold">Process syllabus materials, reference textbooks, or student submissions seamlessly.</p>
-            </div>
-
-            {/* Card 3: Teal Theme */}
-            <div className="p-6 rounded-3xl bg-white border border-zinc-200 hover:border-teal-500/40 hover:shadow-md transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 className="font-extrabold text-zinc-900 mb-2">Real-time Sync</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed font-semibold">Active WebSocket communication for live generation progress and feedback stream.</p>
-            </div>
+            ))}
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-zinc-200/80 py-6 text-center text-xs text-zinc-450 font-semibold bg-white/40">
-          &copy; {new Date().getFullYear()} Veda AI. Ready to customize components.
+        <footer className="relative z-10 border-t border-zinc-200/70 py-6 text-center text-xs text-zinc-400 font-semibold">
+          &copy; {new Date().getFullYear()} Lumina AI · Smart Assessment Platform
         </footer>
       </div>
     );
@@ -494,7 +553,7 @@ export default function Home() {
                     )}
                   </button>
                   {showMobileNotifDropdown && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2.5 z-50 animate-fadeIn text-left">
+                    <div className="fixed left-4 right-4 top-20 mx-auto max-w-sm bg-white border border-zinc-200 rounded-2xl shadow-2xl py-2.5 z-50 animate-fadeIn text-left">
                       <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between">
                         <span className="text-xs font-extrabold text-zinc-800">Notifications</span>
                         {notifications.length > 0 && (
@@ -554,12 +613,7 @@ export default function Home() {
           <>
             {/* Standard Dashboard Mobile Header */}
             <header className="flex md:hidden items-center justify-between mx-4 mt-4 mb-2 px-4 py-3 bg-white border border-zinc-200/60 rounded-[24px] shadow-sm sticky top-4 z-30">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center font-extrabold text-white text-base shadow-sm">
-                  V
-                </div>
-                <span className="font-extrabold text-zinc-900 text-lg tracking-tight">VedaAI</span>
-              </div>
+              <Logo size="sm" href="/" />
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <button
@@ -578,7 +632,7 @@ export default function Home() {
                     )}
                   </button>
                   {showMobileNotifDropdown && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2.5 z-50 animate-fadeIn text-left">
+                    <div className="fixed left-4 right-4 top-20 mx-auto max-w-sm bg-white border border-zinc-200 rounded-2xl shadow-2xl py-2.5 z-50 animate-fadeIn text-left">
                       <div className="px-4 py-2 border-b border-zinc-100 flex items-center justify-between">
                         <span className="text-xs font-extrabold text-zinc-800">Notifications</span>
                         {notifications.length > 0 && (
@@ -631,7 +685,7 @@ export default function Home() {
                     )}
                   </button>
                   {showMobileProfileDropdown && (
-                    <div className="absolute right-0 mt-2 w-52 bg-white border border-zinc-200 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn">
+                    <div className="fixed right-4 top-20 w-56 max-w-[calc(100vw-2rem)] bg-white border border-zinc-200 rounded-2xl shadow-2xl py-2 z-50 animate-fadeIn">
                       <div className="px-4 py-2.5 border-b border-zinc-100">
                         <p className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">Signed in as</p>
                         <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
@@ -693,7 +747,7 @@ export default function Home() {
                 <div className="relative w-20 h-20 mb-8">
                   <div className="absolute inset-0 rounded-full border-4 border-orange-50 border-t-[#ff7a59] animate-spin" />
                 </div>
-                <h3 className="text-lg font-bold text-zinc-800 mb-2">Generating with Veda AI</h3>
+                <h3 className="text-lg font-bold text-zinc-800 mb-2">Generating with Lumina AI</h3>
                 <p className="text-xs text-[#ff7a59] font-semibold animate-pulse">{generationSteps[generationStep]}</p>
                 
                 {/* Visual indicator bar */}
@@ -1025,11 +1079,84 @@ export default function Home() {
             ) : (
               /* ASSIGNMENTS POPULATED STATE MATCHING USER IMAGE */
               <div className="pb-16">
-                {/* Title Header with green dot */}
-                <div className="mb-6 flex items-start gap-3 relative z-10">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-emerald-500/20 mt-1.5 animate-pulse flex-shrink-0" />
+                {/* ── Welcome hero ── */}
+                <div className="relative overflow-hidden rounded-3xl mb-5 bg-gradient-to-br from-zinc-900 via-zinc-900 to-[#2a1a14] p-6 sm:p-7 shadow-lg">
+                  <div className="absolute -top-16 -right-8 w-56 h-56 bg-[#ff7a59]/20 rounded-full blur-3xl" />
+                  <div className="absolute -bottom-20 -left-8 w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl" />
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-bold text-[#ff7a59] uppercase tracking-wider mb-1.5">Welcome back</p>
+                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                        {user?.fullName || user?.username || 'Teacher'} <span className="inline-block">👋</span>
+                      </h1>
+                      <p className="text-xs text-zinc-400 mt-2 font-semibold">
+                        Here&apos;s what&apos;s happening in your classroom today.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleCreateClick}
+                      className="self-start sm:self-auto inline-flex items-center gap-2 py-3 px-5 bg-gradient-to-r from-[#ff7a59] via-[#f43f8e] to-[#8b5cf6] hover:opacity-95 text-white font-bold rounded-full text-xs shadow-lg shadow-[#f43f8e]/25 active:scale-98 transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                      </svg>
+                      New Assignment
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Summary stat cards ── */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-7">
+                  {[
+                    {
+                      label: 'Total Papers',
+                      value: assignments.length,
+                      tint: 'bg-orange-50 text-[#ff7a59]',
+                      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />,
+                    },
+                    {
+                      label: 'Generated',
+                      value: assignments.filter((a) => a.status === 'Generated').length,
+                      tint: 'bg-emerald-50 text-emerald-600',
+                      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />,
+                    },
+                    {
+                      label: 'In Progress',
+                      value: assignments.filter((a) => a.status !== 'Generated').length,
+                      tint: 'bg-indigo-50 text-indigo-600',
+                      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />,
+                    },
+                    {
+                      label: 'Subjects',
+                      value: new Set(assignments.map((a) => a.subject).filter(Boolean)).size,
+                      tint: 'bg-purple-50 text-purple-600',
+                      icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />,
+                    },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-xs flex items-center gap-3 hover:shadow-md transition-shadow"
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${stat.tint}`}>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          {stat.icon}
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xl font-extrabold text-zinc-900 leading-none">{stat.value}</div>
+                        <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-1 truncate">
+                          {stat.label}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Section label */}
+                <div className="mb-5 flex items-start gap-3 relative z-10">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-emerald-500/20 mt-1 animate-pulse flex-shrink-0" />
                   <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-zinc-950">Assignments</h1>
+                    <h2 className="text-lg font-extrabold tracking-tight text-zinc-950">Your Assignments</h2>
                     <p className="text-xs text-zinc-400 mt-0.5">Manage and create assignments for your classes.</p>
                   </div>
                 </div>
@@ -1214,61 +1341,7 @@ export default function Home() {
         </main>
 
         {/* ── MOBILE BOTTOM NAV ── */}
-        <nav className="flex md:hidden fixed bottom-4 left-4 right-4 z-40 bg-[#121212] border border-zinc-800/50 rounded-[28px] py-2.5 px-3 shadow-2xl items-center justify-around">
-          {[
-            {
-              label: 'Home', active: true,
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="3" y="3" width="7" height="7" rx="2" />
-                  <rect x="14" y="3" width="7" height="7" rx="2" />
-                  <rect x="3" y="14" width="7" height="7" rx="2" />
-                  <rect x="14" y="14" width="7" height="7" rx="2" />
-                </svg>
-              ),
-            },
-            {
-              label: 'Assignments', active: false,
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="4" y="5" width="16" height="14" rx="4" />
-                  <rect x="8" y="9" width="8" height="2.5" rx="1.25" fill="#121212" />
-                  <rect x="14" y="14" width="3" height="2" rx="1" fill="#121212" />
-                </svg>
-              ),
-            },
-            {
-              label: 'Library', active: false,
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 2c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6H6zm7 7V3.5L18.5 9H13z" />
-                  <path d="M11 11h2v3h3v2h-3v3h-2v-3H8v-2h3v-3z" fill="#121212" />
-                </svg>
-              ),
-            },
-            {
-              label: 'AI Toolkit', active: false,
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M10 3c0 3.5-2.5 6-6 6 3.5 0 6 2.5 6 6 0-3.5 2.5-6 6-6-3.5 0-6-2.5-6-6z" />
-                  <path d="M18 11c0 2-1.5 3.5-3.5 3.5 2 0 3.5 1.5 3.5 3.5 0-2 1.5-3.5 3.5-3.5-2 0-3.5-1.5-3.5-3.5z" />
-                </svg>
-              ),
-            },
-          ].map(({ label, active, icon }) => (
-            <button
-              key={label}
-              className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-1 text-[10px] font-bold transition-colors cursor-pointer ${
-                active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              <div className={active ? 'text-white' : 'text-zinc-650'}>
-                {icon}
-              </div>
-              <span className="tracking-wide">{label}</span>
-            </button>
-          ))}
-        </nav>
+        <MobileBottomNav active="home" />
 
         {/* Mobile FAB — always visible on mobile */}
         <button

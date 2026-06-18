@@ -244,6 +244,64 @@ export const authService = {
   },
 
   /**
+   * Request a password reset email
+   */
+  async forgotPassword(email: string): Promise<ApiResponse<void> & { message?: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send reset email');
+      }
+
+      return { success: true, message: data.message };
+    } catch (error: any) {
+      console.error('authService forgotPassword error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to send reset email',
+      };
+    }
+  },
+
+  /**
+   * Reset the password using the token from the email link
+   */
+  async resetPassword(token: string, password: string): Promise<ApiResponse<void> & { message?: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password/${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to reset password');
+      }
+
+      return { success: true, message: data.message };
+    } catch (error: any) {
+      console.error('authService resetPassword error:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to reset password',
+      };
+    }
+  },
+
+  /**
    * Refresh the access token
    */
   async refresh(): Promise<ApiResponse<void>> {

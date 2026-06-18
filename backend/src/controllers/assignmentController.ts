@@ -1,4 +1,5 @@
 import Assignment from '../models/Assignment.js';
+import Group from '../models/Group.js';
 import { assignmentQueue } from '../queues/assignmentQueue.js';
 
 /**
@@ -128,7 +129,7 @@ export async function listAssignments(req, res) {
     const userId = req.user._id;
     const assignments = await Assignment.find({ userId })
       .sort({ createdAt: -1 })
-      .select('title subject difficulty status totalMarks totalQuestions createdAt dueDate')
+      .select('title subject difficulty status totalMarks totalQuestions createdAt dueDate groupId groupName')
       .lean();
 
     return res.json({ success: true, data: assignments });
@@ -154,6 +155,46 @@ export async function deleteAssignment(req, res) {
     return res.json({ success: true, message: 'Assignment deleted' });
   } catch (err) {
     console.error('deleteAssignment error:', err);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+}
+
+/**
+ * PUT /api/assignments/:id/group
+ * Assign this paper to one of the user's groups, or clear it (groupId: null).
+ */
+export async function setAssignmentGroup(req, res) {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const { groupId } = req.body;
+
+    let groupName = '';
+    let resolvedGroupId: any = null;
+
+    if (groupId) {
+      // Verify the group exists and belongs to this user before linking.
+      const group = await Group.findOne({ _id: groupId, userId }).lean();
+      if (!group) {
+        return res.status(404).json({ success: false, error: 'Group not found' });
+      }
+      resolvedGroupId = group._id;
+      groupName = (group as any).name;
+    }
+
+    const assignment = await Assignment.findOneAndUpdate(
+      { _id: id, userId },
+      { groupId: resolvedGroupId, groupName },
+      { new: true }
+    );
+
+    if (!assignment) {
+      return res.status(404).json({ success: false, error: 'Assignment not found' });
+    }
+
+    return res.json({ success: true, data: assignment });
+  } catch (err) {
+    console.error('setAssignmentGroup error:', err);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 }

@@ -15,12 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Veda AI - Smart Assessment Platform",
-  description: "Create comprehensive, tailored question papers and assignments with Veda AI",
+  title: "Lumina AI — Smart Assessment Platform",
+  description: "Create comprehensive, tailored question papers and assignments with Lumina AI",
   icons: {
-    icon: "/veda-icon.svg",
-    shortcut: "/veda-icon.svg",
-    apple: "/veda-icon.svg",
+    icon: "/lumina-icon.svg",
+    shortcut: "/lumina-icon.svg",
+    apple: "/lumina-icon.svg",
   },
 };
 
