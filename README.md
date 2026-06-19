@@ -27,8 +27,9 @@ This document is the single source of truth for the codebase. It explains **what
 15. [Containerized Setup (Docker)](#-containerized-setup-docker)
 16. [API Reference](#-api-reference)
 17. [NPM Scripts](#-npm-scripts)
-18. [Production & Deployment Notes](#-production--deployment-notes)
-19. [Troubleshooting](#-troubleshooting)
+18. [Continuous Integration (CI)](#-continuous-integration-ci)
+19. [Production & Deployment Notes](#-production--deployment-notes)
+20. [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -587,6 +588,7 @@ All protected routes require the `accessToken` cookie (sent automatically by the
 | `npm run dev` | `tsx watch src/index.ts` (hot reload) |
 | `npm run build` | `tsc` → `dist/` |
 | `npm start` | `node dist/index.js` (run the build) |
+| `npm test` | `node --import tsx --test` — runs the unit tests (Node's built-in test runner) |
 
 **Frontend (`frontend`)**
 | Script | Action |
@@ -595,6 +597,57 @@ All protected routes require the `accessToken` cookie (sent automatically by the
 | `npm run build` | `next build` |
 | `npm start` | `next start` |
 | `npm run lint` | `eslint` |
+
+---
+
+## 🔁 Continuous Integration (CI)
+
+Every push and pull request is checked automatically by **GitHub Actions**. The workflow lives in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+### Triggers
+- **`push`** to `main`
+- **`pull_request`** (any branch targeting `main`)
+
+### Jobs
+
+The pipeline is a **two‑stage DAG**: the two code‑check jobs run in parallel first, then the Docker job runs only if both pass (`needs: [backend, frontend]`).
+
+| Job | Runs in | Steps |
+|---|---|---|
+| **Backend (build + test)** | `backend/` | `npm ci` → `npm run build` (tsc type‑check + compile) → `npm test` |
+| **Frontend (lint + build)** | `frontend/` | `npm ci` → `npm run lint` → `npm run build` (Next production build) |
+| **Docker images build** | repo root | Builds both production images from the Dockerfiles (no push) — proves they stay valid. Runs only after backend + frontend pass. |
+
+### Lint is a hard gate
+
+`npm run lint` failing **fails CI**. To keep the gate meaningful without a large refactor, two pervasive rules are downgraded to **warnings** in [`frontend/eslint.config.mjs`](frontend/eslint.config.mjs) — `@typescript-eslint/no-explicit-any` and `react-hooks/set-state-in-effect`. They still show up in the logs but don't block merges; genuine problems (syntax errors, undefined variables, unescaped JSX, etc.) remain hard errors.
+
+### Tests
+
+Backend unit tests use Node's built‑in test runner (`node:test`) executed through `tsx`, so no extra test framework is needed. See [`backend/src/services/geminiService.test.ts`](backend/src/services/geminiService.test.ts) for the `isRetryableError` retry‑policy tests. Test files are excluded from the production build (`tsconfig.json`), so they never ship in the Docker image.
+
+### Branch protection
+
+`main` is protected by a GitHub **ruleset** (applies to everyone, no bypass):
+- **No direct pushes** — all changes must go through a pull request.
+- **Required status checks** — `Backend (build + test)` and `Frontend (lint + build)` must be green before the **Merge** button unlocks.
+- No force‑pushes or deletions of `main`.
+
+So the everyday flow is: branch → push → open PR → CI passes → merge.
+
+### Run the same checks locally
+
+```bash
+# Backend
+cd backend && npm ci && npm run build && npm test
+
+# Frontend
+cd frontend && npm ci && npm run lint && npm run build
+
+# Docker images (optional — same as the docker CI job)
+docker build -t lumina-backend:ci ./backend
+docker build -t lumina-frontend:ci ./frontend
+```
 
 ---
 
