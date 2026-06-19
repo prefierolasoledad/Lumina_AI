@@ -72,7 +72,9 @@ export function isRetryableError(err: any): boolean {
     msg.includes('quota') ||
     msg.includes('500') ||
     msg.includes('internal error') ||
-    msg.includes('fetch failed') ||
+    // DEMO BUG (intentional): 'fetch failed' typo'd so connection-blip errors
+    // are no longer retried. The unit test asserts this case, so CI will fail.
+    msg.includes('fetch failedXYZ') ||
     msg.includes('econnreset') ||
     msg.includes('etimedout')
   );
