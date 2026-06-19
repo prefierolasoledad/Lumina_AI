@@ -1,0 +1,85 @@
+# Orchestrates the Lumina AI stack: frontend + backend each built from their
+# own Dockerfile, plus the MongoDB and Redis services the backend depends on.
+#
+#   docker compose up --build
+#
+# Frontend -> http://localhost:3000
+# Backend  -> http://localhost:5000  (HTTP API + WebSocket share this port)
+#
+# The backend reads its secrets (JWT, SMTP, Gemini, etc.) from ./backend/.env.
+# The infrastructure URLs below are overridden here so they point at the
+# in-network service names instead of localhost.
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      # Point at the compose service names rather than localhost.
+      MONGO_URI: mongodb://mongo:27017/lumina_ai
+      REDIS_URL: redis://redis:6379
+      # Browser origin used for CORS + WebSocket Origin allowlist.
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist multer uploads across container restarts.
+      - backend-uploads:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Inlined into the client bundle at build time. The browser talks to the
+        # backend's published host port for WebSockets.
+        NEXT_PUBLIC_WS_URL: ws://localhost:5000
+        # Used only by the server-side proxy rewrite -> reach backend in-network.
+        NEXT_PUBLIC_API_URL: http://backend:5000/api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Also provided at runtime so the proxy rewrite resolves correctly even if
+      # Next re-reads it when the standalone server boots.
+      NEXT_PUBLIC_API_URL: http://backend:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
+  backend-uploads:
