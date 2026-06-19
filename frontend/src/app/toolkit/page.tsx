@@ -129,7 +129,7 @@ export default function ToolkitPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${activeTool?.id || 'veda-ai'}-${Date.now()}.md`;
+    a.download = `${activeTool?.id || 'lumina-ai'}-${Date.now()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };

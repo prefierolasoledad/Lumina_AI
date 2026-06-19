@@ -22,7 +22,7 @@ export default function Sidebar({ activeItem }: SidebarProps) {
         const res = await api.listAssignments();
         if (res.success && res.data) {
           setAssignmentCount(res.data.length);
-          localStorage.setItem('veda_assignments', JSON.stringify(res.data));
+          localStorage.setItem('lumina_assignments', JSON.stringify(res.data));
         }
       } catch (err) {
         console.error('Failed to fetch assignments count:', err);
@@ -35,15 +35,15 @@ export default function Sidebar({ activeItem }: SidebarProps) {
 
     if (typeof window !== 'undefined') {
       const updateCount = () => {
-        const stored = localStorage.getItem('veda_assignments');
+        const stored = localStorage.getItem('lumina_assignments');
         if (stored) {
           setAssignmentCount(JSON.parse(stored).length);
         } else {
           setAssignmentCount(0);
         }
       };
-      window.addEventListener('veda_assignments_changed', updateCount);
-      return () => window.removeEventListener('veda_assignments_changed', updateCount);
+      window.addEventListener('lumina_assignments_changed', updateCount);
+      return () => window.removeEventListener('lumina_assignments_changed', updateCount);
     }
   }, [user]);
 

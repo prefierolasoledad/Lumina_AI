@@ -227,7 +227,7 @@ export default function GroupsPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. Class 10-A"
-                  className="veda-input"
+                  className="lumina-input"
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
@@ -236,7 +236,7 @@ export default function GroupsPage() {
                     value={form.grade}
                     onChange={(e) => setForm({ ...form, grade: e.target.value })}
                     placeholder="e.g. Class 10"
-                    className="veda-input"
+                    className="lumina-input"
                   />
                 </Field>
                 <Field label="Subject">
@@ -244,7 +244,7 @@ export default function GroupsPage() {
                     value={form.subject}
                     onChange={(e) => setForm({ ...form, subject: e.target.value })}
                     placeholder="e.g. Physics"
-                    className="veda-input"
+                    className="lumina-input"
                   />
                 </Field>
               </div>
@@ -255,7 +255,7 @@ export default function GroupsPage() {
                   value={form.studentCount}
                   onChange={(e) => setForm({ ...form, studentCount: e.target.value })}
                   placeholder="e.g. 32"
-                  className="veda-input"
+                  className="lumina-input"
                 />
               </Field>
               <Field label="Description">
@@ -264,7 +264,7 @@ export default function GroupsPage() {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Optional notes about this group..."
                   rows={3}
-                  className="veda-input resize-y"
+                  className="lumina-input resize-y"
                 />
               </Field>
               <Field label="Color">
@@ -304,7 +304,7 @@ export default function GroupsPage() {
       )}
 
       <style jsx>{`
-        :global(.veda-input) {
+        :global(.lumina-input) {
           width: 100%;
           padding: 0.65rem 1rem;
           background: #fafafa;
@@ -315,7 +315,7 @@ export default function GroupsPage() {
           color: #18181b;
           transition: all 0.15s;
         }
-        :global(.veda-input:focus) {
+        :global(.lumina-input:focus) {
           outline: none;
           border-color: #6366f1;
           box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);

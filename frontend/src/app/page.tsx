@@ -119,8 +119,8 @@ export default function Home() {
         status: a.status === 'completed' ? 'Generated' : 'Active',
       }));
       setAssignments(mapped);
-      localStorage.setItem('veda_assignments', JSON.stringify(mapped));
-      window.dispatchEvent(new Event('veda_assignments_changed'));
+      localStorage.setItem('lumina_assignments', JSON.stringify(mapped));
+      window.dispatchEvent(new Event('lumina_assignments_changed'));
     }
   };
 

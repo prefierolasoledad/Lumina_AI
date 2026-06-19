@@ -67,7 +67,7 @@ This document is the single source of truth for the codebase. It explains **what
 ## 📂 Monorepo Structure
 
 ```
-VEDA_AI/                      # workspace root (git repo)
+LUMINA_AI/                    # workspace root (git repo)
 ├── README.md                 # this file
 ├── .gitignore                # ignores .env, node_modules, build output, uploads
 ├── frontend/                  # Next.js frontend  → "Lumina AI" web app

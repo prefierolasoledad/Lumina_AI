@@ -29,7 +29,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Load from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('veda_notifications');
+      const stored = localStorage.getItem('lumina_notifications');
       if (stored) {
         setNotifications(JSON.parse(stored));
       }
@@ -39,9 +39,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Save to localStorage when changed
   const saveNotifications = (newNotifications: Notification[]) => {
     setNotifications(newNotifications);
-    localStorage.setItem('veda_notifications', JSON.stringify(newNotifications));
+    localStorage.setItem('lumina_notifications', JSON.stringify(newNotifications));
     // Dispatch event to notify other components (e.g. headers)
-    window.dispatchEvent(new Event('veda_notifications_changed'));
+    window.dispatchEvent(new Event('lumina_notifications_changed'));
   };
 
   // Connect to WS and subscribe when user is logged in
@@ -64,7 +64,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       };
       
       // Load current latest notifications, append and save
-      const current = JSON.parse(localStorage.getItem('veda_notifications') || '[]');
+      const current = JSON.parse(localStorage.getItem('lumina_notifications') || '[]');
       saveNotifications([newNotif, ...current]);
     });
 
@@ -77,7 +77,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         read: false,
       };
 
-      const current = JSON.parse(localStorage.getItem('veda_notifications') || '[]');
+      const current = JSON.parse(localStorage.getItem('lumina_notifications') || '[]');
       saveNotifications([newNotif, ...current]);
     });
 
