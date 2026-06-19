@@ -60,7 +60,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Transient errors worth retrying: overloaded (503), rate-limited (429),
 // internal (500), or connection blips. Bad requests / auth errors are NOT retried.
-function isRetryableError(err: any): boolean {
+export function isRetryableError(err: any): boolean {
   const msg = String(err?.message || err || '').toLowerCase();
   return (
     msg.includes('503') ||
