@@ -59,13 +59,11 @@ jobs:
 
       - run: npm ci
 
-      # Static analysis: catches unused vars, bad hooks, etc.
-      # Marked advisory (continue-on-error) for now because the codebase has
-      # pre-existing lint findings. It still runs and reports in the logs, but
-      # won't fail the build. Once the lint errors are cleaned up, delete the
-      # `continue-on-error` line to make lint a hard gate.
+      # Static analysis. This is now a HARD GATE: any lint error fails the
+      # build. Noisy stylistic rules (no-explicit-any, set-state-in-effect)
+      # are downgraded to warnings in eslint.config.mjs, so they still show
+      # up in the logs but don't block CI.
       - run: npm run lint
-        continue-on-error: true
 
       # Full production build. NEXT_PUBLIC_* values are inlined at build time;
       # these mirror the defaults in frontend/Dockerfile so the build matches
@@ -76,3 +74,22 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:5000/api
           NEXT_PUBLIC_WS_URL: ws://localhost:5000
           NEXT_TELEMETRY_DISABLED: "1"
+
+  # Verifies the production Docker images actually build from the Dockerfiles.
+  # `needs: [backend, frontend]` makes this job wait until both code-check jobs
+  # pass — no point building images if the code doesn't compile. This turns the
+  # pipeline into two stages: (1) backend + frontend in parallel, then (2) docker.
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest ships with Docker preinstalled, so we can build directly.
+      # We only BUILD here (no push) — this just proves the Dockerfiles are valid.
+      - name: Build backend image
+        run: docker build -t lumina-backend:ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t lumina-frontend:ci ./frontend

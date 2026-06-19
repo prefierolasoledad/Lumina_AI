@@ -607,7 +607,7 @@ export default function LoginPage() {
 
                 <div className="flex flex-col items-center gap-3 text-xs text-zinc-500 pt-2 border-t border-zinc-200">
                   <div className="font-semibold text-zinc-500">
-                    Didn't receive code?{' '}
+                    Didn&apos;t receive code?{' '}
                     {canResend ? (
                       <button
                         type="button"

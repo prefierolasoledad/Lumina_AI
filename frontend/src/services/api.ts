@@ -7,7 +7,7 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-let API_BASE_URL = '/api';
+const API_BASE_URL = '/api';
 
 /**
  * Custom fetch wrapper that automatically handles credentials and silent token refresh on 401.

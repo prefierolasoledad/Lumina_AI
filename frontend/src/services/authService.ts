@@ -19,7 +19,7 @@ export interface User {
   updatedAt?: string;
 }
 
-let API_BASE_URL = '/api';
+const API_BASE_URL = '/api';
 
 export const authService = {
   /**
