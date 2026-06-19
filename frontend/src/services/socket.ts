@@ -9,7 +9,7 @@ class SocketService {
   private intentionalClose = false;
   private authFailed = false;
 
-  connect(url: string = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080") {
+  connect(url: string = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:5000") {
     if (this.socket) {
       return;
     }

@@ -253,7 +253,7 @@ export default function OutputPage({ params }: PageProps) {
     const { assignmentId } = res.data as any;
 
     if (!user) return;
-    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080");
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:5000");
     socketService.emit('subscribe', { userId: user._id });
 
     const unsubProgress = socketService.on('job:progress', (data: any) => {

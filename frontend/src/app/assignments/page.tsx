@@ -49,7 +49,7 @@ export default function AssignmentsPage() {
     fetchData();
 
     // Live refresh when a generation finishes/fails
-    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080');
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000');
     socketService.emit('subscribe', { userId: user._id });
     const unsubDone = socketService.on('job:done', fetchData);
     const unsubFailed = socketService.on('job:failed', fetchData);

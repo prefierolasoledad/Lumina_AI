@@ -135,7 +135,7 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
 
-    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080');
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000');
     socketService.emit('subscribe', { userId: user._id });
 
     const unsubDone = socketService.on('job:done', () => {
@@ -271,7 +271,7 @@ export default function Home() {
 
     if (!user) return;
     // Connect to websocket to listen for job progress and completion
-    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080");
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:5000");
     
     // Subscribe to events for our user
     socketService.emit('subscribe', { userId: user._id });

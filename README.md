@@ -24,10 +24,11 @@ This document is the single source of truth for the codebase. It explains **what
 12. [Cookie & Token Architecture](#-cookie--token-architecture)
 13. [Environment Variables](#-environment-variables)
 14. [Local Setup](#-local-setup)
-15. [API Reference](#-api-reference)
-16. [NPM Scripts](#-npm-scripts)
-17. [Production & Deployment Notes](#-production--deployment-notes)
-18. [Troubleshooting](#-troubleshooting)
+15. [Containerized Setup (Docker)](#-containerized-setup-docker)
+16. [API Reference](#-api-reference)
+17. [NPM Scripts](#-npm-scripts)
+18. [Production & Deployment Notes](#-production--deployment-notes)
+19. [Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -450,13 +451,15 @@ Request with expired accessToken
 | Variable | Description |
 |---|---|
 | `NEXT_PUBLIC_API_URL` | Backend base the proxy forwards to (e.g. `http://localhost:5000/api`) |
-| `NEXT_PUBLIC_WS_URL` | WebSocket URL (e.g. `ws://localhost:8080`) |
+| `NEXT_PUBLIC_WS_URL` | WebSocket URL. The WS server **shares the Express HTTP port**, so this should point at the backend's port — e.g. `ws://localhost:5000` (not `8080`). The browser connects here directly, bypassing the `/api` proxy. |
 
 `.env*` files are gitignored — commit only `.env.example` templates.
 
 ---
 
 ## 🚀 Local Setup
+
+> 💡 **Want the whole stack with one command instead?** See [Containerized Setup (Docker)](#-containerized-setup-docker) — `docker compose up --build` runs the frontend, backend, MongoDB, and Redis together.
 
 **Prerequisites:** Node.js v18+, MongoDB, Redis (Docker is easiest), a Gemini API key, and a Gmail App Password (for OTP/reset emails).
 
@@ -479,6 +482,56 @@ npm run dev                              # http://localhost:3000
 ```
 
 > On Windows PowerShell use `copy` instead of `cp`. During development, OTP codes and reset URLs are printed to the backend console (`[OTP DEBUG]` / `[PASSWORD RESET DEBUG]`) so you can test without real email.
+
+---
+
+## 🐳 Containerized Setup (Docker)
+
+The repo ships a Docker setup that runs the **entire stack** — frontend, backend, MongoDB, and Redis — with one command. Each app is containerized **independently** (its own multi‑stage `Dockerfile`), and `docker-compose.yml` at the root wires them together.
+
+### Files
+```
+backend/Dockerfile        # build: tsc → dist/, run: node dist/index.js (non-root, slim)
+backend/.dockerignore
+frontend/Dockerfile       # Next.js standalone output (non-root, slim)
+frontend/.dockerignore
+docker-compose.yml        # frontend + backend + mongo + redis + named volumes
+```
+
+> The frontend image relies on `output: "standalone"` in `next.config.ts`, which emits a self‑contained server bundle so the runtime image stays small.
+
+### Quick start
+```bash
+# From the repo root. Ensure backend/.env exists (see Environment Variables).
+docker compose up --build           # build images + start everything
+```
+| Service | URL | Notes |
+|---|---|---|
+| Frontend | http://localhost:3000 | Next.js standalone server |
+| Backend | http://localhost:5000 | REST API **+ WebSocket** (shared port) |
+| MongoDB | localhost:27017 | data persisted in the `mongo-data` volume |
+| Redis | localhost:6379 | BullMQ broker |
+
+Compose starts MongoDB and Redis first, waits for their healthchecks, then boots the backend, then the frontend.
+
+### How configuration is wired
+- The backend reads its secrets from **`backend/.env`** (`env_file`). Compose then **overrides** the infrastructure URLs so they resolve to the in‑network service names instead of `localhost`:
+  - `MONGO_URI=mongodb://mongo:27017/lumina_ai`
+  - `REDIS_URL=redis://redis:6379`
+- `NODE_ENV` is set to **`production`** in the container, so the backend enforces its production guards — it requires a **`JWT_REFRESH_SECRET`** and a **`JWT_SECRET` of ≥32 chars** in `backend/.env`, or it will refuse to boot.
+- The frontend's server‑side proxy reaches the backend in‑network at `http://backend:5000/api` (passed as both a build arg and a runtime env). The browser, however, opens the WebSocket against the **published host port** `ws://localhost:5000` (baked in at build time as a `NEXT_PUBLIC_*` value).
+
+### Common commands
+```bash
+docker compose up -d                # start detached
+docker compose logs -f backend      # tail backend logs
+docker compose ps                   # status of all services
+docker compose down                 # stop (keeps volumes/data)
+docker compose down -v              # stop AND wipe mongo-data + uploads volumes
+docker compose build frontend       # rebuild a single image
+```
+
+> **Uploaded reference files** are persisted to the `backend-uploads` volume so they survive container restarts. **MongoDB data** lives in `mongo-data`.
 
 ---
 
@@ -565,6 +618,8 @@ All protected routes require the `accessToken` cookie (sent automatically by the
 | **Backend won't start (FATAL env)** | A required env var is missing/weak — read the console message and fix `.env`. |
 | **Queue jobs never run** | Redis isn't reachable. Verify `REDIS_URL` and that Redis is running. |
 | **Login fails despite correct password** | Email case mismatch is handled (all lookups lowercase); confirm the account is **verified** (unverified accounts are prompted to verify via OTP on login). |
+| **Docker: `backend` keeps restarting with `[FATAL] Missing … JWT_REFRESH_SECRET` or `JWT_SECRET must be ≥32 chars`** | The container runs `NODE_ENV=production`, which enforces stronger secret rules than dev. Set a real `JWT_REFRESH_SECRET` and a ≥32‑char `JWT_SECRET` in `backend/.env` (e.g. `openssl rand -hex 32`), then `docker compose up -d backend`. |
+| **Docker: WebSocket won't connect from the browser** | The WS server shares the backend's port. Ensure the frontend image was built with `NEXT_PUBLIC_WS_URL=ws://localhost:5000` (the published host port), not an internal name like `ws://backend:5000`. |
 
 ---
 

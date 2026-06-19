@@ -49,7 +49,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!user) return;
 
     // Connect to WebSocket
-    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080");
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:5000");
     socketService.emit('subscribe', { userId: user._id });
 
     // Listen to job progress done
