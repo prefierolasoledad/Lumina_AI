@@ -16,10 +16,20 @@ const hashToken = (token: string) => crypto.createHash('sha256').update(token).d
 
 // Shared cookie attributes. SameSite=lax in production gives CSRF protection while
 // still working through the same-origin Next.js proxy (all REST calls are first-party).
+//
+// COOKIE_DOMAIN widens the cookie from host-only to a whole registrable domain
+// (e.g. '.example.com'). This is required when the frontend and backend live on
+// different subdomains — frontend on app.example.com, backend on api.example.com —
+// because the browser connects the WebSocket *directly* to the backend rather than
+// through the Next.js proxy. A host-only cookie set via the proxy belongs to the
+// frontend host and would never be attached to that handshake, leaving the socket
+// unauthenticated. With the shared parent domain the two hosts are same-site, so
+// SameSite=lax still holds. Leave unset for single-host or localhost deployments.
 const cookieOptions = (maxAge: number) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: (process.env.NODE_ENV === 'production' ? 'lax' : 'strict') as 'lax' | 'strict',
+  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
   maxAge,
 });
 

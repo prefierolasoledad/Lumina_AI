@@ -9,6 +9,7 @@ npm-debug.log*
 .git
 .gitignore
 Dockerfile
+Dockerfile.vercel
 .dockerignore
 *.log
 tsconfig.tsbuildinfo

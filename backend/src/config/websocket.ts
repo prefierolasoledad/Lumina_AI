@@ -29,11 +29,12 @@ export function initWebSocketServer(server: HttpServer) {
   });
 
   wss.on('connection', (ws, req) => {
-    // Reject cross-site WebSocket handshakes (CSWSH). Because auth cookies are
-    // SameSite=None in production, a malicious page could open a socket in the
-    // victim's browser and have their cookies attached. Validate the Origin header
-    // against the configured frontend. Requests without an Origin (native clients,
-    // not browsers) are allowed since CSWSH is a browser-only attack.
+    // Reject cross-site WebSocket handshakes (CSWSH). Auth cookies are SameSite=lax,
+    // which blocks the cross-site case on its own, but a same-site sibling host (any
+    // other subdomain, once COOKIE_DOMAIN is set) would still have the cookie attached
+    // by the browser. Validate the Origin header against the configured frontend.
+    // Requests without an Origin (native clients, not browsers) are allowed since
+    // CSWSH is a browser-only attack.
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
