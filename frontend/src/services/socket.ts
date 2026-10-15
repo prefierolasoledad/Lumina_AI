@@ -8,11 +8,16 @@ class SocketService {
   private queue: { event: string; data: any }[] = [];
   private intentionalClose = false;
   private authFailed = false;
+  private connecting = false;
 
   connect(url: string = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:5000") {
-    if (this.socket) {
+    // `connecting` matters now that opening is async: several components call
+    // connect() on mount, and without this guard they would each race past the
+    // `this.socket` check while the first ticket request was still in flight.
+    if (this.socket || this.connecting) {
       return;
     }
+    this.connecting = true;
     // Fresh connection attempt — clear stop flags.
     this.intentionalClose = false;
     this.authFailed = false;
@@ -20,12 +25,53 @@ class SocketService {
     if (normalizedUrl && !normalizedUrl.startsWith("ws://") && !normalizedUrl.startsWith("wss://")) {
       normalizedUrl = `wss://${normalizedUrl}`;
     }
+    // Store the URL *without* the ticket: tickets expire in about a minute, so a
+    // reconnect has to fetch a fresh one rather than replay the stale one.
     this.url = normalizedUrl;
+    void this.openSocket(normalizedUrl);
+  }
+
+  /**
+   * Fetch a handshake ticket, then open the socket.
+   *
+   * The ticket request goes to the relative `/api` path, which the Next.js rewrite
+   * proxies server-side — so it is first-party and the auth cookie applies. The
+   * WebSocket itself connects straight to the backend, where that cookie would not
+   * be sent if the two are on unrelated hosts (Vercel + Railway). The ticket carries
+   * the identity across that gap.
+   *
+   * If the request fails we still try the bare URL: on a same-host deployment the
+   * cookie reaches the handshake by itself, and the server accepts either.
+   */
+  private async openSocket(baseUrl: string) {
+    let target = baseUrl;
     try {
-      this.socket = new WebSocket(normalizedUrl);
+      const res = await fetch("/api/auth/ws-ticket", { credentials: "include" });
+      if (res.ok) {
+        const body = await res.json();
+        const ticket = body?.data?.ticket;
+        if (ticket) {
+          const sep = baseUrl.includes("?") ? "&" : "?";
+          target = `${baseUrl}${sep}ticket=${encodeURIComponent(ticket)}`;
+        }
+      }
+    } catch {
+      // Offline or the backend is unreachable — fall through and let the socket
+      // attempt (and its onclose retry) surface the problem.
+    }
+
+    // disconnect() may have been called while the ticket was in flight.
+    if (this.intentionalClose) {
+      this.connecting = false;
+      return;
+    }
+
+    try {
+      this.socket = new WebSocket(target);
 
       this.socket.onopen = () => {
-        console.log("WebSocket connected to", url);
+        this.connecting = false;
+        console.log("WebSocket connected to", baseUrl);
         this.emitInternal("connect", null);
         
         // Flush queue
@@ -66,6 +112,7 @@ class SocketService {
       };
 
       this.socket.onclose = () => {
+        this.connecting = false;
         this.socket = null;
         this.emitInternal("disconnect", null);
         // Only auto-reconnect for unexpected drops — not on intentional disconnects
@@ -76,12 +123,14 @@ class SocketService {
         this.reconnectTimeout = setTimeout(() => this.connect(this.url), 5000);
       };
     } catch (err) {
+      this.connecting = false;
       console.error("Failed to initialize WebSocket:", err);
     }
   }
 
   disconnect() {
     this.intentionalClose = true;
+    this.connecting = false;
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

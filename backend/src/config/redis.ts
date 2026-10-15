@@ -4,6 +4,13 @@ dotenv.config();
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
+// `family: 0` asks Node for a dual-stack DNS lookup (A *and* AAAA records).
+// ioredis defaults to 4, which resolves IPv4 only — that breaks on providers whose
+// internal hostnames are IPv6-only, notably Railway's private network
+// (`redis.railway.internal`), where it surfaces as a confusing ENOTFOUND and the
+// BullMQ worker silently never picks up jobs. 0 is safe everywhere: it still
+// prefers whatever the host actually publishes, including plain IPv4 locally.
+//
 // Parse REDIS_URL into connection options.
 // BullMQ uses its own bundled ioredis internally — passing options (not an instance)
 // avoids the dual-ioredis type conflict and is the officially recommended pattern.
@@ -18,6 +25,7 @@ function parseRedisOptions() {
       username: url.username ? decodeURIComponent(url.username) : (process.env.REDIS_USERNAME || undefined),
       maxRetriesPerRequest: null as null, // required by BullMQ
       enableReadyCheck: false,            // required for Upstash
+      family: 0,                          // see note below — dual-stack DNS lookup
       ...(isTLS ? { tls: {} } : {}),
     };
   } catch (error) {
@@ -56,6 +64,7 @@ function parseRedisOptions() {
       password: password ? decodeURIComponent(password) : undefined,
       maxRetriesPerRequest: null as null,
       enableReadyCheck: false,
+      family: 0,
       ...(isTLS ? { tls: {} } : {}),
     };
   }
@@ -72,6 +81,7 @@ export const redisConnection = new Redis({
   password: bullMQRedisOptions.password,
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  family: 0,
   ...(redisUrl.startsWith('rediss://') ? { tls: {} } : {}),
 });
 

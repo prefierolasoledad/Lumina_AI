@@ -10,6 +10,7 @@ import {
   refreshAccessToken,
   forgotPassword,
   resetPassword,
+  issueWsTicket,
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { otpAndResetLimiter, loginLimiter } from '../middleware/rateLimitMiddleware.js';
@@ -29,5 +30,7 @@ router.post('/reset-password/:token', otpAndResetLimiter, resetPassword);
 // Protected routes
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, updateUserProfile);
+// Short-lived credential for the WebSocket handshake (see issueWsTicket).
+router.get('/ws-ticket', protect, issueWsTicket);
 
 export default router;
