@@ -16,12 +16,27 @@ const hashToken = (token: string) => crypto.createHash('sha256').update(token).d
 
 // Shared cookie attributes. SameSite=lax in production gives CSRF protection while
 // still working through the same-origin Next.js proxy (all REST calls are first-party).
+//
+// COOKIE_DOMAIN widens the cookie from host-only to a whole registrable domain
+// (e.g. '.example.com'). This is required when the frontend and backend live on
+// different subdomains — frontend on app.example.com, backend on api.example.com —
+// because the browser connects the WebSocket *directly* to the backend rather than
+// through the Next.js proxy. A host-only cookie set via the proxy belongs to the
+// frontend host and would never be attached to that handshake, leaving the socket
+// unauthenticated. With the shared parent domain the two hosts are same-site, so
+// SameSite=lax still holds. Leave unset for single-host or localhost deployments.
 const cookieOptions = (maxAge: number) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: (process.env.NODE_ENV === 'production' ? 'lax' : 'strict') as 'lax' | 'strict',
+  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
   maxAge,
 });
+
+// Lifetime of a WebSocket handshake ticket. Long enough to cover the round trip
+// from issuing the ticket to opening the socket, short enough that a ticket
+// leaked via proxy logs or browser history is worthless by the time it is found.
+const WS_TICKET_TTL_SECONDS = 60;
 
 // Remove expired refresh tokens and enforce the per-user session cap.
 const pruneRefreshTokens = (tokens: any[]) => {
@@ -687,3 +702,34 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+
+
+/**
+ * @desc    Issue a short-lived ticket for authenticating a WebSocket handshake
+ * @route   GET /api/auth/ws-ticket
+ * @access  Private
+ *
+ * The browser opens the WebSocket *directly* against the backend, bypassing the
+ * Next.js proxy that makes REST calls first-party. When the two are deployed on
+ * unrelated hosts (Vercel + Railway), the auth cookie is scoped to the frontend
+ * and is never attached to that handshake, so cookie auth alone cannot work.
+ *
+ * This endpoint is reached through the proxy, where the cookie *does* apply, and
+ * hands back a separate single-purpose token the client can put in the socket URL.
+ * The `typ: 'ws'` claim keeps these tickets from being interchangeable with access
+ * tokens: a ticket cannot be replayed against the REST API, and an access token
+ * leaked into a URL is not accepted here either.
+ */
+export const issueWsTicket = async (req, res) => {
+  try {
+    const ticket = jwt.sign(
+      { userId: req.user._id.toString(), typ: 'ws' },
+      process.env.JWT_SECRET,
+      { expiresIn: WS_TICKET_TTL_SECONDS }
+    );
+    res.status(200).json({ success: true, data: { ticket, expiresIn: WS_TICKET_TTL_SECONDS } });
+  } catch (error: any) {
+    console.error(`WS ticket error: ${error.message}`);
+    res.status(500).json({ success: false, message: 'Could not issue WebSocket ticket' });
+  }
+};

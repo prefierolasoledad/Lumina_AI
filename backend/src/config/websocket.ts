@@ -29,11 +29,12 @@ export function initWebSocketServer(server: HttpServer) {
   });
 
   wss.on('connection', (ws, req) => {
-    // Reject cross-site WebSocket handshakes (CSWSH). Because auth cookies are
-    // SameSite=None in production, a malicious page could open a socket in the
-    // victim's browser and have their cookies attached. Validate the Origin header
-    // against the configured frontend. Requests without an Origin (native clients,
-    // not browsers) are allowed since CSWSH is a browser-only attack.
+    // Reject cross-site WebSocket handshakes (CSWSH). Auth cookies are SameSite=lax,
+    // which blocks the cross-site case on its own, but a same-site sibling host (any
+    // other subdomain, once COOKIE_DOMAIN is set) would still have the cookie attached
+    // by the browser. Validate the Origin header against the configured frontend.
+    // Requests without an Origin (native clients, not browsers) are allowed since
+    // CSWSH is a browser-only attack.
     const allowedOrigins = [
       process.env.FRONTEND_URL || 'http://localhost:3000',
       'http://localhost:3000',
@@ -47,18 +48,46 @@ export function initWebSocketServer(server: HttpServer) {
       return;
     }
 
-    // Authenticate the connection from the httpOnly accessToken cookie sent on the
-    // upgrade request. The client-supplied userId is NOT trusted — we only ever use
-    // the id derived from the verified JWT, preventing subscribing to other users' jobs.
+    // Authenticate the connection. Two accepted credentials, in priority order:
+    //
+    //   1. A `ticket` query parameter — a short-lived token from GET /api/auth/ws-ticket.
+    //      Required when the frontend and backend sit on unrelated hosts, because the
+    //      auth cookie is scoped to the frontend and is never sent on this handshake.
+    //   2. The httpOnly accessToken cookie — still used for same-host deployments
+    //      (localhost, docker compose, or a shared parent domain via COOKIE_DOMAIN).
+    //
+    // The client-supplied userId is NOT trusted — we only ever use the id derived from
+    // the verified JWT, preventing subscribing to other users' jobs.
     let authenticatedUserId: string | null = null;
+
     try {
-      const cookies = parseCookies(req.headers.cookie);
-      if (cookies.accessToken) {
-        const decoded = jwt.verify(cookies.accessToken, process.env.JWT_SECRET as string) as any;
-        authenticatedUserId = decoded?.userId ?? null;
+      // `req.url` on an upgrade is path + query only, so a base is needed to parse it.
+      const ticket = new URL(req.url || '/', 'http://localhost').searchParams.get('ticket');
+      if (ticket) {
+        const decoded = jwt.verify(ticket, process.env.JWT_SECRET as string) as any;
+        // Reject anything that is not purpose-built for this handshake. Without the
+        // typ check, an access token that leaked into a URL would be accepted here.
+        if (decoded?.typ === 'ws') {
+          authenticatedUserId = decoded?.userId ?? null;
+        }
       }
     } catch {
       authenticatedUserId = null;
+    }
+
+    if (!authenticatedUserId) {
+      try {
+        const cookies = parseCookies(req.headers.cookie);
+        if (cookies.accessToken) {
+          const decoded = jwt.verify(cookies.accessToken, process.env.JWT_SECRET as string) as any;
+          // Mirror of the check above: an access token must NOT carry the ws type.
+          if (!decoded?.typ) {
+            authenticatedUserId = decoded?.userId ?? null;
+          }
+        }
+      } catch {
+        authenticatedUserId = null;
+      }
     }
 
     if (!authenticatedUserId) {
