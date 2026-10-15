@@ -18,8 +18,8 @@
 #      HTTPS and the browser blocks mixed-content connections.
 #
 # ── EDIT THESE TWO before the first deploy ────────────────────────────────────
-ARG BACKEND_ORIGIN=https://lumina-backend-xxxx.up.railway.app
-ARG BACKEND_WS_ORIGIN=wss://lumina-backend-xxxx.up.railway.app
+ARG BACKEND_ORIGIN=https://luminaai-production-e210.up.railway.app
+ARG BACKEND_WS_ORIGIN=wss://luminaai-production-e210.up.railway.app
 
 # ---- Deps stage: install all dependencies ----
 FROM node:20-alpine AS deps
